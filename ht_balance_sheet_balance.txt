@@ -1,0 +1,11 @@
+--Use TNDCSQL03
+
+select
+	gl.[G_L Account No_],
+	sum(gl.Amount) as Balance
+from navrep.[dbo].[Hi Touch$G_L Entry] gl
+where
+	gl.[Posting Date] <= '2017-06-30'
+	and [G_L Account No_] in ('23160', '23150', '23500')
+group by
+	gl.[G_L Account No_]

@@ -1,0 +1,89 @@
+declare @datestart date = '2016-07-01'
+
+select
+	q2.CustomerNumber,
+	q2.ClosedInvoices,
+	q2.DaysToPay,
+	q2.DaysToPay/q2.ClosedInvoices as AvgDaysToPay
+from (
+select
+	q1.[Customer No_] as CustomerNumber,
+	count(q1.[Document No_]) as ClosedInvoices,
+	sum(q1.DaysToPay) as DaysToPay	
+from (
+select
+	cle.[Customer No_],	
+	cle.[Document No_],
+	cle.[Document Date],
+	cle.[Closed at Date],
+	DATEDIFF("d",cle.[Document Date],cle.[Closed at Date]) as DaysToPay	
+from NAVRep.dbo.[Hi Touch$Cust_ Ledger Entry] cle with(nolock)
+where
+	cle.[Closed by Entry No_] <> 0
+	and cle.[Document Type] = 2
+	and cle.[Document Date] >= @datestart
+	and cle.[Closed at Date] >=@datestart
+) q1
+group by
+	q1.[Customer No_]
+) q2
+
+union all
+
+select
+	q2.CustomerNumber,
+	q2.ClosedInvoices,
+	q2.DaysToPay,
+	q2.DaysToPay/q2.ClosedInvoices as AvgDaysToPay
+from (
+select
+	q1.[Customer No_] as CustomerNumber,
+	count(q1.[Document No_]) as ClosedInvoices,
+	sum(q1.DaysToPay) as DaysToPay	
+from (
+select
+	cle.[Customer No_],	
+	cle.[Document No_],
+	cle.[Document Date],
+	cle.[Closed at Date],
+	DATEDIFF("d",cle.[Document Date],cle.[Closed at Date]) as DaysToPay	
+from NAVRep.dbo.[MYOP$Cust_ Ledger Entry] cle with(nolock)
+where
+	cle.[Closed by Entry No_] <> 0
+	and cle.[Document Type] = 2
+	and cle.[Document Date] >= @datestart
+	and cle.[Closed at Date] >=@datestart
+) q1
+group by
+	q1.[Customer No_]
+) q2
+
+union all
+
+select
+	q2.CustomerNumber,
+	q2.ClosedInvoices,
+	q2.DaysToPay,
+	q2.DaysToPay/q2.ClosedInvoices as AvgDaysToPay
+from (
+select
+	q1.[Customer No_] as CustomerNumber,
+	count(q1.[Document No_]) as ClosedInvoices,
+	sum(q1.DaysToPay) as DaysToPay	
+from (
+select
+	cle.[Customer No_],	
+	cle.[Document No_],
+	cle.[Document Date],
+	cle.[Closed at Date],
+	DATEDIFF("d",cle.[Document Date],cle.[Closed at Date]) as DaysToPay	
+from NAVRep.dbo.[Rentacrate$Cust_ Ledger Entry] cle with(nolock)
+where
+	cle.[Closed by Entry No_] <> 0
+	and cle.[Document Type] = 2
+	and cle.[Document Date] >= @datestart
+	and cle.[Closed at Date] >=@datestart
+) q1
+group by
+	q1.[Customer No_]
+) q2

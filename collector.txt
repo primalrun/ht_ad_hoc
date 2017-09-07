@@ -1,0 +1,50 @@
+create table #collector(
+	cust_nbr varchar(25),
+	cust_name varchar(75),
+	collector varchar(75)
+)
+
+insert into #collector
+select
+	c.No_,
+	c.Name,
+	ca.Code
+from navrep.dbo.[Hi Touch$Customer] c with(nolock)
+	left outer join navrep.dbo.[Hi Touch$Salesperson_Purchaser] sp with(nolock)
+		on c.[Salesperson Code] = sp.Code
+	left outer join navrep.dbo.[Hi Touch$Collection Agent] ca with(nolock)
+		on case when c.[Collection Agent Code] = '' then sp.[Collector Code] 
+			else c.[Collection Agent Code]
+			end = ca.Code
+
+
+insert into #collector
+select
+	c.No_,
+	c.Name,
+	ca.Code
+from navrep.dbo.[MYOP$Customer] c with(nolock)
+	left outer join navrep.dbo.[MYOP$Salesperson_Purchaser] sp with(nolock)
+		on c.[Salesperson Code] = sp.Code
+	left outer join navrep.dbo.[MYOP$Collection Agent] ca with(nolock)
+		on case when c.[Collection Agent Code] = '' then sp.[Collector Code] 
+			else c.[Collection Agent Code]
+			end = ca.Code
+
+
+insert into #collector
+select
+	c.No_,
+	c.Name,
+	ca.Code
+from navrep.dbo.[Rentacrate$Customer] c with(nolock)
+	left outer join navrep.dbo.[Rentacrate$Salesperson_Purchaser] sp with(nolock)
+		on c.[Salesperson Code] = sp.Code
+	left outer join navrep.dbo.[Rentacrate$Collection Agent] ca with(nolock)
+		on case when c.[Collection Agent Code] = '' then sp.[Collector Code] 
+			else c.[Collection Agent Code]
+			end = ca.Code
+
+select * from #collector
+
+drop table #collector

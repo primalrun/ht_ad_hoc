@@ -1,0 +1,110 @@
+declare @datestart date = '2017-06-29'
+
+select
+	inv6.InvoiceEntryNbr,
+	inv6.CustNbr,
+	c.Name as CustName,
+	inv6.InvoiceDocNbr,
+	inv6.InvoiceDocDate,
+	inv6.InvoiceAmount,
+	inv6.LastTrxnDate,
+	inv6.ClosingEntryNbr,
+	inv6.ClosingDocNbr,
+	inv6.ClosingPostDate,
+	inv6.ClosingAmount
+from (
+
+select
+	inv5.[Entry No_] as InvoiceEntryNbr,
+	inv5.CustNbr,
+	inv5.InvoiceDocNbr,
+	inv5.InvoiceDocDate,
+	inv5.InvoiceAmount,
+	inv5.LastTrxnDate,
+	inv5.ClosingEntryNbr,
+	inv5.ClosingDocNbr,
+	inv5.ClosingPostDate,
+	sum(dcle.Amount) as ClosingAmount
+	
+from (
+
+select
+	inv4.[Entry No_],
+	inv4.CustNbr,
+	inv4.InvoiceDocNbr,
+	inv4.InvoiceDocDate,
+	inv4.InvoiceAmount,
+	inv4.LastTrxnDate,
+	cle.[Entry No_] as ClosingEntryNbr,
+	cle.[Document No_] as ClosingDocNbr,
+	cle.[Posting Date] as ClosingPostDate
+from (
+
+select
+	inv3.[Entry No_],
+	cle.[Customer No_] as CustNbr,
+	cle.[Document No_] as InvoiceDocNbr,
+	cle.[Document Date] as InvoiceDocDate,
+	cle.[Sales (LCY)] as InvoiceAmount,
+	inv3.LastTrxnDate,
+	cle.[Closed by Entry No_]
+from (
+
+select
+	inv2.[Entry No_],
+	max(dcle.[Posting Date]) as LastTrxnDate
+from (
+
+select
+	inv1.[Entry No_]
+from (
+select
+	cle.[Entry No_]	
+from NAVRep.dbo.[Rentacrate$Cust_ Ledger Entry] cle with(nolock)
+where
+	cle.[Document Type] = 2
+	and left(cle.[Document No_], 3) = 'INV'
+) inv1
+
+	inner join NAVRep.dbo.[Rentacrate$Detailed Cust_ Ledg_ Entry] dcle with(nolock)
+		on inv1.[Entry No_] = dcle.[Cust_ Ledger Entry No_]
+group by
+	inv1.[Entry No_]
+having
+	sum(dcle.Amount) = 0
+
+) inv2
+	inner join NAVRep.dbo.[Rentacrate$Detailed Cust_ Ledg_ Entry] dcle with(nolock)
+		on inv2.[Entry No_] = dcle.[Cust_ Ledger Entry No_]
+group by
+	inv2.[Entry No_]
+having
+	max(dcle.[Posting Date]) > @datestart
+
+) inv3
+	inner join NAVRep.dbo.[Rentacrate$Cust_ Ledger Entry] cle with(nolock)
+		on inv3.[Entry No_] = cle.[Entry No_]
+
+) inv4
+	left outer join NAVRep.dbo.[Rentacrate$Cust_ Ledger Entry] cle with(nolock)
+		on inv4.[Closed by Entry No_] = cle.[Entry No_]
+
+) inv5
+	left outer join NAVRep.dbo.[Rentacrate$Detailed Cust_ Ledg_ Entry] dcle with(nolock)
+		on inv5.[Entry No_] = dcle.[Cust_ Ledger Entry No_]
+		and inv5.ClosingDocNbr = dcle.[Document No_]
+		and inv5.ClosingPostDate = dcle.[Posting Date]
+group by
+	inv5.[Entry No_],
+	inv5.CustNbr,
+	inv5.InvoiceDocNbr,
+	inv5.InvoiceDocDate,
+	inv5.InvoiceAmount,
+	inv5.LastTrxnDate,
+	inv5.ClosingEntryNbr,
+	inv5.ClosingDocNbr,
+	inv5.ClosingPostDate
+
+) inv6
+	left outer join NAVRep.dbo.Rentacrate$Customer c with(nolock)
+		on inv6.CustNbr = c.No_

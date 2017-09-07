@@ -1,0 +1,79 @@
+--Use TNDCSQL03
+
+declare @datestart date = '2017-01-01'
+declare @dateend date = '2017-06-30'
+
+create table #result1 (
+	Company varchar(25),		
+	Category1 varchar(75),
+	Category2 varchar(75),
+	GLAccount varchar(10),
+	GLDescription varchar(100),
+	Jan decimal(20,10),
+	Feb decimal(20,10),
+	Mar decimal(20,10),
+	Apr decimal(20,10),
+	May decimal(20,10),
+	Jun decimal(20,10)	
+	)
+
+insert into #result1
+select
+	'HT' as Company,
+	glr.level_1 as Category1,
+	glr.level_2 as Category2,
+	gl.[G_L Account No_],
+	gla.Name as GLDescription,
+	sum(case when month(gl.[Posting Date]) = 1 then gl.Amount else 0 end) as Jan,
+	sum(case when month(gl.[Posting Date]) = 2 then gl.Amount else 0 end) as Feb,
+	sum(case when month(gl.[Posting Date]) = 3 then gl.Amount else 0 end) as Mar,
+	sum(case when month(gl.[Posting Date]) = 4 then gl.Amount else 0 end) as Apr,
+	sum(case when month(gl.[Posting Date]) = 5 then gl.Amount else 0 end) as May,
+	sum(case when month(gl.[Posting Date]) = 6 then gl.Amount else 0 end) as Jun
+from NAVRep.dbo.[Hi Touch$G_L Entry] gl with(nolock)
+	inner join HTDW.Playground.[myop\jason.walker].gl_account_reporting glr
+		on gl.[G_L Account No_] = glr.gl_account
+		and glr.company = 'HT'
+		and glr.financial_statement = 'P&L'
+	left outer join NAVRep.dbo.[Hi Touch$G_L Account] gla with(nolock)
+		on gl.[G_L Account No_] = gla.No_
+where
+	gl.[Posting Date] between @datestart and @dateend
+group by
+	glr.level_1,
+	glr.level_2,
+	gl.[G_L Account No_],
+	gla.Name
+
+insert into #result1
+select
+	'MYOP' as Company,
+	glr.level_1 as Category1,
+	glr.level_2 as Category2,
+	gl.[G_L Account No_],
+	gla.Name as GLDescription,
+	sum(case when month(gl.[Posting Date]) = 1 then gl.Amount else 0 end) as Jan,
+	sum(case when month(gl.[Posting Date]) = 2 then gl.Amount else 0 end) as Feb,
+	sum(case when month(gl.[Posting Date]) = 3 then gl.Amount else 0 end) as Mar,
+	sum(case when month(gl.[Posting Date]) = 4 then gl.Amount else 0 end) as Apr,
+	sum(case when month(gl.[Posting Date]) = 5 then gl.Amount else 0 end) as May,
+	sum(case when month(gl.[Posting Date]) = 6 then gl.Amount else 0 end) as Jun
+from NAVRep.dbo.[MYOP$G_L Entry] gl with(nolock)
+	inner join HTDW.Playground.[myop\jason.walker].gl_account_reporting glr
+		on gl.[G_L Account No_] = glr.gl_account
+		and glr.company = 'MYOP'
+		and glr.financial_statement = 'P&L'
+	left outer join NAVRep.dbo.[MYOP$G_L Account] gla with(nolock)
+		on gl.[G_L Account No_] = gla.No_
+where
+	gl.[Posting Date] between @datestart and @dateend
+group by
+	glr.level_1,
+	glr.level_2,
+	gl.[G_L Account No_],
+	gla.Name
+
+
+select * from #result1 order by 1, 2, 3, 4
+
+drop table #result1

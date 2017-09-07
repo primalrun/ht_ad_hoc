@@ -1,0 +1,72 @@
+declare @datestart date = '2017-02-01'
+declare @dateend date = '2017-07-07'
+
+select
+	'HiTouch' as GLCompany,
+	vle.[Vendor No_],
+	v.Name as VendorName,
+	vle.[Document No_],
+	case when vle.[Document Type] = 1 then 'Payment' else 'Unknown' end as DocumentType,
+	vle.[Entry No_],
+	vle.[Document Date],
+	vle.[Posting Date],	
+	vle.Description,
+	vle.[External Document No_],
+	dvle.Amount as Payment	
+from NAVRep.dbo.[Hi Touch$Vendor Ledger Entry] vle with(nolock)
+	inner join NAVRep.dbo.[Hi Touch$Detailed Vendor Ledg_ Entry] dvle with(nolock)
+		on vle.[Entry No_] = dvle.[Vendor Ledger Entry No_]
+	left outer join NAVRep.dbo.[Hi Touch$Vendor] v with(nolock)
+		on vle.[Vendor No_] = v.No_
+where
+	vle.[Posting Date] between @datestart and @dateend
+	and vle.[Document Type] = 1
+	and dvle.[Entry Type] = 1
+
+union all
+
+select
+	'MYOP' as GLCompany,
+	vle.[Vendor No_],
+	v.Name as VendorName,
+	vle.[Document No_],
+	case when vle.[Document Type] = 1 then 'Payment' else 'Unknown' end as DocumentType,
+	vle.[Entry No_],
+	vle.[Document Date],
+	vle.[Posting Date],	
+	vle.Description,
+	vle.[External Document No_],
+	dvle.Amount as Payment	
+from NAVRep.dbo.[MYOP$Vendor Ledger Entry] vle with(nolock)
+	inner join NAVRep.dbo.[MYOP$Detailed Vendor Ledg_ Entry] dvle with(nolock)
+		on vle.[Entry No_] = dvle.[Vendor Ledger Entry No_]
+	left outer join NAVRep.dbo.[MYOP$Vendor] v with(nolock)
+		on vle.[Vendor No_] = v.No_
+where
+	vle.[Posting Date] between @datestart and @dateend
+	and vle.[Document Type] = 1
+	and dvle.[Entry Type] = 1
+
+union all
+
+select
+	'RAC' as GLCompany,
+	vle.[Vendor No_],
+	v.Name as VendorName,
+	vle.[Document No_],
+	case when vle.[Document Type] = 1 then 'Payment' else 'Unknown' end as DocumentType,
+	vle.[Entry No_],
+	vle.[Document Date],
+	vle.[Posting Date],	
+	vle.Description,
+	vle.[External Document No_],
+	dvle.Amount as Payment	
+from NAVRep.dbo.[Rentacrate$Vendor Ledger Entry] vle with(nolock)
+	inner join NAVRep.dbo.[Rentacrate$Detailed Vendor Ledg_ Entry] dvle with(nolock)
+		on vle.[Entry No_] = dvle.[Vendor Ledger Entry No_]
+	left outer join NAVRep.dbo.[Rentacrate$Vendor] v with(nolock)
+		on vle.[Vendor No_] = v.No_
+where
+	vle.[Posting Date] between @datestart and @dateend
+	and vle.[Document Type] = 1
+	and dvle.[Entry Type] = 1

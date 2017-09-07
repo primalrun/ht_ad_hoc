@@ -1,0 +1,15 @@
+select	
+	gl.[Posting Date],
+	gl.[Document No_],
+	gl.[G_L Account No_],
+	gl.[External Document No_],
+	gl.[Entry No_],
+	gl.[Shortcut Dimension 5 Code] as SellAs,	
+	gl.[Global Dimension 2 Code] as BusinessUnit,
+	gl.[Shortcut Dimension 3 Code] as Location,	
+	-gl.Amount as Sales
+from NAVRep.dbo.[MYOP$G_L Entry] gl with(nolock)
+where
+	gl.[G_L Account No_] in ('40000', '40001')
+	and gl.[Posting Date] between '2016-01-01' and '2016-12-31'
+	and gl.[Shortcut Dimension 5 Code] like 'AJ%'

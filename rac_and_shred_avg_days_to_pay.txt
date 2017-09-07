@@ -1,0 +1,118 @@
+--Use TNDCSQL03
+--average days to pay = total number of days to pay divided by the number of closed invoices
+declare @datestart date = '2016-12-01'
+declare @dateend date = '2017-05-31'
+
+
+create table #invoice_days (
+    CustNbr varchar(25),
+	CustName varchar(75),
+	DocNbr varchar(25),
+	InvoiceAmount decimal(12, 2),
+	Company varchar(10),
+	InvoiceDate date,
+	ClosedDate date,
+	DaysToPay int)
+
+insert into #invoice_days
+select
+    cle.[Customer No_],	
+	c.Name,
+    cle.[Document No_],	
+	sum(cle.[Sales (LCY)]) as InvoiceAmount,
+	null as Company,
+	cle.[Document Date],
+	cle.[Closed at Date],
+	DATEDIFF("D",cle.[Document Date],cle.[Closed at Date]) as DaysToPay
+from NAVRep.dbo.[Rentacrate$Cust_ Ledger Entry] cle with(nolock)
+    left join NAVRep.dbo.Rentacrate$Customer c with(nolock)
+	    on cle.[Customer No_] = c.No_
+where    
+	cle.[Document Type] = 2
+	and cle.[Open] = 0
+	and cle.[Closed at Date] >= cle.[Document Date]
+	and cle.[Document Date] between @datestart and @dateend
+group by
+    cle.[Customer No_],	
+	c.Name,
+    cle.[Document No_],
+	cle.[Document Date],
+	cle.[Closed at Date],
+	DATEDIFF("D",cle.[Document Date],cle.[Closed at Date])	
+
+--Company = Shred, Invoice starts with "SS"
+update #invoice_days
+set Company = 'Shred'
+where left(DocNbr, 2) = 'SS'
+
+--Company = RAC, Invoice starts with "INV"
+update #invoice_days
+set Company = 'RAC'
+where left(DocNbr, 3) = 'INV'
+
+	
+--Shred Cust Nbr
+create table #shred_cust_nbr(
+	cust_nbr varchar(25))
+
+insert into #shred_cust_nbr
+select distinct
+	i.CustNbr	
+from #invoice_days i
+where
+	Company = 'Shred'
+
+
+--RAC Cust Nbr
+create table #rac_cust_nbr(
+	cust_nbr varchar(25))
+
+insert into #rac_cust_nbr
+select distinct
+	i.CustNbr	
+from #invoice_days i
+where
+	Company = 'RAC'
+
+--Shred Customer Number with removed RAC
+create table #shred_cust_nbr2(
+	cust_nbr varchar(25))
+
+insert into #shred_cust_nbr2
+select
+	sc.cust_nbr
+from #shred_cust_nbr sc
+	left outer join #rac_cust_nbr rc
+		on sc.cust_nbr = rc.cust_nbr
+where
+	rc.cust_nbr is null
+
+--Update invoice data with Shred Cust Numbers
+update id
+set id.Company = 'Shred'
+from #invoice_days id
+	left outer join #shred_cust_nbr2 s2
+		on id.CustNbr = s2.cust_nbr
+where
+	s2.cust_nbr is not null
+	and id.Company is null
+
+--Update remainder to RAC
+update #invoice_days set Company = 'RAC' where Company is null
+
+
+select
+	i.Company,
+    i.CustNbr,
+	i.CustName,
+	i.DocNbr,
+	i.InvoiceDate,
+	i.InvoiceAmount,
+	i.DaysToPay
+from #invoice_days i
+
+
+drop table #invoice_days
+drop table #shred_cust_nbr
+drop table #rac_cust_nbr
+drop table #shred_cust_nbr2

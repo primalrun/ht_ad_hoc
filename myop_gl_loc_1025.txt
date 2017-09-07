@@ -1,0 +1,29 @@
+declare @datestart date = '2017-01-01'
+declare @dateend date = '2017-04-30'
+
+select
+	gl.[Posting Date],
+	gl.[Document Date],
+	gl.[G_L Account No_],
+	gla.Name as GLAccountDesc,
+	gl.[Document Type],
+	gl.[Document No_],
+	gl.Description,
+	gl.[Global Dimension 2 Code] as BusinessUnit,
+	gl.[User ID],
+	gl.[External Document No_],
+	gl.[Source Code],
+	gl.[Source Type],
+	gl.[Source No_],	
+	gl.[Location Code],
+	gl.[Shortcut Dimension 4 Code] as Dept,
+	gl.[Shortcut Dimension 5 Code] as SellAs,
+	gl.Amount
+from NAVRep.dbo.[MYOP$G_L Entry] gl with(nolock)
+	left outer join NAVRep.dbo.[MYOP$G_L Account] gla with(nolock)
+		on gl.[G_L Account No_] = gla.No_
+where
+	gl.[Posting Date] between @datestart and @dateend
+	and gl.[Location Code] = '1025'
+	
+	

@@ -1,0 +1,67 @@
+declare @datestart date = '2017-01-01'
+declare @dateend date = '2017-04-30'
+
+select
+	'HT' as GLCompany,
+	gl.[G_L Account No_] as GLAccountNbr,
+	gla.Name as GLAccountDescription,
+	gl.[Posting Date],
+	gl.[Entry No_],
+	gl.[User ID],
+	gl.Description,
+	gl.[External Document No_],
+	gl.[Source Code],
+	gl.[Source No_],
+	gl.[Global Dimension 1 Code],
+	gl.[Global Dimension 2 Code],
+	gl.[Shortcut Dimension 3 Code],
+	gl.[Shortcut Dimension 4 Code],
+	gl.[Shortcut Dimension 5 Code],
+	gl.[Shortcut Dimension 6 Code],
+	gl.[Shortcut Dimension 7 Code],
+	gl.[Shortcut Dimension 8 Code],	
+	gl.Amount as BankCharge
+from NAVRep.dbo.[Hi Touch$G_L Entry] gl with(nolock)
+	inner join htdw.Playground.[myop\jason.walker].gl_account_reporting glr
+		on gl.[G_L Account No_] = glr.gl_account
+		and glr.company = 'HT'
+	left outer join NAVRep.dbo.[Hi Touch$G_L Account] gla with(nolock)
+		on gl.[G_L Account No_] = gla.No_
+where
+	glr.level_2 = 'Bank Charges'
+	and glr.financial_statement = 'P&L'
+	and gl.[Posting Date] between @datestart and @dateend
+
+
+union all
+
+select
+	'MYOP' as GLCompany,
+	gl.[G_L Account No_] as GLAccountNbr,
+	gla.Name as GLAccountDescription,
+	gl.[Posting Date],
+	gl.[Entry No_],
+	gl.[User ID],
+	gl.Description,
+	gl.[External Document No_],
+	gl.[Source Code],
+	gl.[Source No_],
+	gl.[Global Dimension 1 Code],
+	gl.[Global Dimension 2 Code],
+	gl.[Shortcut Dimension 3 Code],
+	gl.[Shortcut Dimension 4 Code],
+	gl.[Shortcut Dimension 5 Code],
+	gl.[Shortcut Dimension 6 Code],
+	gl.[Shortcut Dimension 7 Code],
+	gl.[Shortcut Dimension 8 Code],	
+	gl.Amount as BankCharge
+from NAVRep.dbo.[MYOP$G_L Entry] gl with(nolock)
+	inner join htdw.Playground.[myop\jason.walker].gl_account_reporting glr
+		on gl.[G_L Account No_] = glr.gl_account
+		and glr.company = 'MYOP'
+	left outer join NAVRep.dbo.[MYOP$G_L Account] gla with(nolock)
+		on gl.[G_L Account No_] = gla.No_
+where
+	glr.level_2 = 'Bank Charges'
+	and glr.financial_statement = 'P&L'
+	and gl.[Posting Date] between @datestart and @dateend

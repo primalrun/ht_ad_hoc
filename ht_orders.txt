@@ -1,0 +1,87 @@
+declare @datestart date = '2017-01-01'
+declare @dateend date = '2017-03-22'
+
+--Non-taxable Customers
+create table #cust_no_tax (
+	cust_nbr varchar(25)
+)
+
+insert into #cust_no_tax
+select
+	c.No_ as Cust_Nbr	
+from NAVRep.dbo.[Hi Touch$Customer] c with(nolock)
+where
+	c.[AvaTax Non-Tax Entity Code] <> ''
+
+--Taxable Customers with Non-taxable Ship-To Locations
+create table #cust_ship_to_no_tax (
+	cust_nbr varchar(25),
+	ship_to_loc varchar(25)
+)
+
+insert into #cust_ship_to_no_tax
+select
+	c.No_ as Cust_Nbr,
+	st.[Location Code] as Loc_Code	
+from NAVRep.dbo.[Hi Touch$Customer] c with(nolock)
+	inner join NAVRep.dbo.[Hi Touch$Ship-to Address] st with(nolock)
+		on c.No_ = st.[Customer No_]
+where
+	c.[AvaTax Non-Tax Entity Code] = ''
+	and st.[AvaTax Non-Tax Entity Code] <> ''
+
+--Orders with Tax on Non-taxable customers
+select
+	sh.[Sell-to Customer No_] as Cust_Nbr,
+	sh.[Sell-to Customer Name] as Cust_Name,
+	'Customer' as Non_Taxable_Level,
+	sh.No_ as Order_Nbr,
+	sh.[Posting Date] as Post_Date,	
+	sum(sl.Amount) as Sales,
+	sum(sl.[Amount Including VAT]) as Sales_with_Tax
+from NAVRep.dbo.[Hi Touch$Sales Header] sh with(nolock)
+	inner join #cust_no_tax cnt
+		on sh.[Sell-to Customer No_] = cnt.cust_nbr
+	inner join navrep.dbo.[Hi Touch$Sales Line] sl with(nolock)
+		on sh.No_ = sl.[Document No_]
+where
+	sh.[Posting Date] between @datestart and @dateend	
+group by
+	sh.[Sell-to Customer No_],
+	sh.[Sell-to Customer Name],
+	sh.No_,
+	sh.[Posting Date]
+having
+	abs(sum(sl.Amount) - sum(sl.[Amount Including VAT])) > 0
+
+union all
+
+select
+	sh.[Sell-to Customer No_] as Cust_Nbr,
+	sh.[Sell-to Customer Name] as Cust_Name,
+	'Ship-To' as Non_Taxable_Level,
+	sh.No_ as Order_Nbr,
+	sh.[Posting Date] as Post_Date,	
+	sum(sl.Amount) as Sales,
+	sum(sl.[Amount Including VAT]) as Sales_with_Tax
+from NAVRep.dbo.[Hi Touch$Sales Header] sh with(nolock)
+	inner join #cust_ship_to_no_tax csnt
+		on sh.[Sell-to Customer No_] = csnt.cust_nbr
+		and sh.[Location Code] = csnt.ship_to_loc
+	inner join navrep.dbo.[Hi Touch$Sales Line] sl with(nolock)
+		on sh.No_ = sl.[Document No_]
+where
+	sh.[Posting Date] between @datestart and @dateend	
+group by
+	sh.[Sell-to Customer No_],
+	sh.[Sell-to Customer Name],
+	sh.No_,
+	sh.[Posting Date]
+having
+	abs(sum(sl.Amount) - sum(sl.[Amount Including VAT])) > 0
+
+
+
+
+drop table #cust_no_tax
+drop table #cust_ship_to_no_tax

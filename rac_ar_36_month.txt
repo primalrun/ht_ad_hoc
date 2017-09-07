@@ -1,0 +1,371 @@
+use navrep
+go
+
+DECLARE @AsofDate AS datetime;
+declare @datetemp date;
+declare @count int = 1;
+declare @count_total int = 41;
+SET @AsofDate =  '2017-05-31';
+set @datetemp = @AsofDate;
+
+
+
+--RAC Transactions
+create table #rac_trxn (
+	ReportDate date,
+	DocNbr varchar(25),
+	DocDate date,
+	CustSummaryInvNbr varchar(45),
+	EndingDate date,
+	PONbr varchar(45),
+	SalesNbr varchar(25),
+	SalesPerson varchar(100),
+	AcqCode varchar(45),
+	CustNbr varchar(25),
+	CustName varchar(200),
+	CollCode varchar(50),
+	CollName varchar(125),
+	PaymentTerms varchar(125),
+	CreditLimit decimal(20, 12),
+	APContactTitle varchar(200),
+	APContactName varchar(200),
+	APContactPhone varchar(200),
+	APContactEmail varchar(200),
+	Blocked varchar(10),
+	OPPeriodType varchar(45),
+	OpenBal decimal(20, 12),
+	DocDate_NotDue decimal(20, 12),
+	DocDate_0_30 decimal(20, 12),
+	DocDate_31_60 decimal(20, 12),
+	DocDate_61_90 decimal(20, 12),
+	DocDate_91_120 decimal(20, 12),
+	DocDate_Over_120 decimal(20, 12),
+	DueDate_NotDue decimal(20, 12),
+	DueDate_Current decimal(20, 12),
+	DueDate_0_30 decimal(20, 12),
+	DueDate_31_60 decimal(20, 12),
+	DueDate_61_90 decimal(20, 12),
+	DueDate_91_120 decimal(20, 12),
+	DueDate_Over_120 decimal(20, 12),
+	Company varchar(20)
+	)		
+
+--RAC Customer Numbers
+create table #rac_cust_nbr (
+	CustNbr varchar(25),
+	Compamy varchar(10)
+	)
+
+--Shred Customer Numbers not in RAC
+create table #shred_cust_nbr (
+	CustNbr varchar(25)
+	)
+
+
+while @count <= @count_total
+begin
+	set @AsofDate = @datetemp;
+	insert into #rac_trxn
+	select
+		@datetemp as ReportDate,	
+		CL.[Document No_],CL.[Document Date],CL.[Cust_ Summary Invoice No_],P.[Ending Date],
+		CL.[External Document No_] AS PONbr,
+		CU.[Salesperson Code] as Slsm,
+		SP.[Name] AS SalesPerson,
+		CU.[Global Dimension 1 Code] AS AcqCode,
+		CU.No_ as CustNbr,
+		CU.[Name] AS CustName,
+		(CASE 
+			when CU.[Collection Agent Code] = '' THEN
+					SP.[Collector Code]
+			ELSE CU.[Collection Agent Code]
+		END) as Col,
+		CO.Name as ColName,
+		CU.[Payment Terms Code] + ' - ' + PT.Description AS PaymentTerms,
+		CU.[Credit Limit (LCY)] AS CredLimit,
+		CON.[Job Title] as APContTitle,
+		CON.Name APContName,
+		CON.[Phone No_] APContPhone,
+		CON.[E-Mail] APContEmail,
+		CASE 
+			when CU.Blocked = 1 then
+			'Yes'
+			else 'No'
+		END AS 'Blocked(Y/N)',
+		CU.[OP Period Type],
+		SUM(ATB.OpenBal) as OpenBal,
+		SUM(ATB.[Not Due]) as NotDue,
+		SUM(ATB.[0-30]) as [0 - 30],
+		SUM(ATB.[31-60]) as [31 - 60],
+		SUM(ATB.[61-90]) as [61 - 90],
+		SUM(ATB.[91-120]) as [91 - 120],
+		SUM(ATB.[Above 120]) as [Over120],
+		SUM([D_NotDue]) as NotDue,
+		SUM(ATB.D_Current) as [Current],
+		SUM(ATB.[D_0-30]) as [0 - 30],
+		SUM(ATB.[D_31-60]) as [31 - 60],
+		SUM(ATB.[D_61-90]) as [61 - 90],
+		SUM(ATB.[D_91-120]) as [91 - 120],
+		SUM(ATB.D_Over120) as [Over120],
+		null as Company
+       
+	from 
+	(
+	select
+		CL.[Entry No_],
+		OA.OpenBal,
+		CL.[Document Date] as AgingDate,
+		---- AGING by Document Date
+		0 as [Not Due],
+		case when (CL.[Cust_ Summary Invoice No_] <> '' AND @AsofDate >= P.[Ending Date]) then
+			(case when DATEDIFF(DAY,P.[Ending Date],@AsofDate -1) <= 30 then OA.OpenBal else 0 end)
+		ELSE
+			(case when DATEDIFF(DAY,CL.[Document Date],@AsofDate -1) <= 30 then OA.OpenBal else 0 end) 
+		END as [0-30],
+		case when (CL.[Cust_ Summary Invoice No_] <> '' AND @AsofDate >= P.[Ending Date]) then
+			(case when DATEDIFF(DAY,P.[Ending Date],@AsofDate -1) between 31 and 60 then OA.OpenBal else 0 end)
+		ELSE
+			(case when DATEDIFF(DAY,CL.[Document Date],@AsofDate -1) between 31 and 60 then OA.OpenBal else 0 end) 
+		END as [31-60],
+		case when (CL.[Cust_ Summary Invoice No_] <> '' AND @AsofDate >= P.[Ending Date]) then
+			(case when DATEDIFF(DAY,P.[Ending Date],@AsofDate -1) between 61 and 90 then OA.OpenBal else 0 end)
+		ELSE
+			(case when DATEDIFF(DAY,CL.[Document Date],@AsofDate -1) between 61 and 90 then OA.OpenBal else 0 end) 
+		END as [61-90],
+		case when (CL.[Cust_ Summary Invoice No_] <> '' AND @AsofDate >= P.[Ending Date]) then
+			(case when DATEDIFF(DAY,P.[Ending Date],@AsofDate -1) between 91 and 120 then OA.OpenBal else 0 end)
+		ELSE
+			(case when DATEDIFF(DAY,CL.[Document Date],@AsofDate -1) between 91 and 120 then OA.OpenBal else 0 end) 
+		END as [91-120],
+		case when (CL.[Cust_ Summary Invoice No_] <> '' AND @AsofDate >= P.[Ending Date]) then
+			(case when DATEDIFF(DAY,P.[Ending Date],@AsofDate -1) > 120 then OA.OpenBal else 0 end)
+		ELSE
+			(case when DATEDIFF(DAY,CL.[Document Date],@AsofDate -1) > 120 then OA.OpenBal else 0 end) 
+		END as [Above 120],
+		---- AGING by Due Date
+		0 as [D_NotDue],
+		(case when DATEDIFF(DAY,CL.[Due Date],@AsofDate -1) < 0 then OA.OpenBal else 0 end) as [D_Current],
+		(case when DATEDIFF(DAY,CL.[Due Date],@AsofDate -1) Between 0 and 30 then OA.OpenBal else 0 end) as [D_0-30],          
+		(case when DATEDIFF(DAY,CL.[Due Date],@AsofDate -1) Between 31 and 60 then OA.OpenBal else 0 end) as [D_31-60],
+		(case when DATEDIFF(DAY,CL.[Due Date],@AsofDate -1) Between 61 and 90 then OA.OpenBal else 0 end) as [D_61-90],
+		(case when DATEDIFF(DAY,CL.[Due Date],@AsofDate -1) Between 91 and 120 then OA.OpenBal else 0 end) as [D_91-120],
+		(case when DATEDIFF(DAY,CL.[Due Date],@AsofDate -1) > 120 then OA.OpenBal else 0 end) as [D_Over120]
+	from dbo.[Rentacrate$Cust_ Ledger Entry] CL
+		left join (
+			select  
+				DL.[Cust_ Ledger Entry No_],
+				SUM(DL.Amount) as OpenBal
+			from dbo.[Rentacrate$Detailed Cust_ Ledg_ Entry] DL
+			where 
+				DL.[Posting Date] <= @AsofDate
+			group by
+				DL.[Cust_ Ledger Entry No_]
+			) OA
+				on OA.[Cust_ Ledger Entry No_] = CL.[Entry No_]
+		left join dbo.[Rentacrate$Customer Accounting Period] P
+			on CL.[Cust_ Summary Invoice No_] = P.[Cust_ Summary Invoice No_] 
+			and CL.[Customer No_] = P.[Customer No_] and CL.[Cust_ Summary Invoice No_] <> ''
+	where 
+		CL.[Posting Date] <= @AsofDate
+		and (case when CL.[Cust_ Summary Invoice No_] = '' then 1 else
+				(case when (CL.[Cust_ Summary Invoice No_] <> '' and @AsofDate >= P.[Ending Date]) then 2 else
+					CASE WHEN CL.[Cust_ Summary Invoice No_] <> '' AND P.[Ending Date] is NULL then 1 
+						ELSE 3 END
+					END)                           
+				end) IN (1,2)
+		and ABS(OA.OpenBal) > 0
+
+	union all
+
+	select
+		CL.[Entry No_],
+		OA.OpenBal,
+		P.[Ending Date] as AgingDate,
+		(case when P.Invoiced = 0 then OA.OpenBal else 0 end) as [Not Due],
+		(case when P.Invoiced = 1 and DATEDIFF(DAY,P.[Ending Date],@AsofDate -1) between 0 AND 30 then OA.OpenBal else 0 end) as [0-30],
+		(case when P.Invoiced = 1 and DATEDIFF(DAY,P.[Ending Date],@AsofDate -1) between 31 and 60 then OA.OpenBal else 0 end) as [31-60],
+		(case when P.Invoiced = 1 and DATEDIFF(DAY,P.[Ending Date],@AsofDate -1) between 61 and 90 then OA.OpenBal else 0 end) as [61-90],
+		(case when P.Invoiced = 1 and DATEDIFF(DAY,P.[Ending Date],@AsofDate -1) between 91 and 120 then OA.OpenBal else 0 end) as [91-120],
+		(case when P.Invoiced = 1 and DATEDIFF(DAY,P.[Ending Date],@AsofDate -1) > 120 then OA.OpenBal else 0 end) as [Above 120],
+		---- AGING by Due Date
+		(case when P.Invoiced = 0 then OA.OpenBal else 0 end) as [D_NotDue],
+		0 as [D_Current],
+		0 as [D_0-30],
+		0 as [D_31-60],
+		0 as [D_61-90],
+		0 as [D_91-120],
+		0  as [D_Over120]
+	from dbo.[Rentacrate$Cust_ Ledger Entry] CL
+		left join (
+			select  
+				DL.[Cust_ Ledger Entry No_],
+				SUM(DL.Amount) as OpenBal
+			from dbo.[Rentacrate$Detailed Cust_ Ledg_ Entry] DL
+			where 
+				DL.[Posting Date] <= @AsofDate
+			group by
+				DL.[Cust_ Ledger Entry No_]
+			) OA
+				on OA.[Cust_ Ledger Entry No_] = CL.[Entry No_]
+		left join dbo.[Rentacrate$Customer Accounting Period] P
+			on CL.[Cust_ Summary Invoice No_] = P.[Cust_ Summary Invoice No_] 
+			and CL.[Customer No_] = P.[Customer No_] and CL.[Cust_ Summary Invoice No_] <> ''
+	where 
+		CL.[Document Date] <= @AsofDate
+		and (case when CL.[Cust_ Summary Invoice No_] = '' then 1 ELSE
+			(case when (CL.[Cust_ Summary Invoice No_] <> '' AND P.Invoiced = 1) then 2 else
+				CASE WHEN CL.[Cust_ Summary Invoice No_] <> '' AND P.[Ending Date] is NULL then 1 
+					ELSE 3 END
+				END)                          
+			end) IN (3)
+		and ABS(OA.OpenBal) > 0
+	) ATB
+		left join dbo.[Rentacrate$Cust_ Ledger Entry] CL
+			on CL.[Entry No_] = ATB.[Entry No_]
+		left join dbo.[Rentacrate$Customer] CU
+			on CU.No_ = CL.[Customer No_]
+		LEFT JOIN dbo.[Rentacrate$Salesperson_Purchaser] SP with(nolock) 
+			ON SP.[Code] = CU.[Salesperson Code]
+		LEFT JOIN dbo.[Rentacrate$Payment Terms] PT
+			ON PT.Code = CU.[Payment Terms Code]
+		LEFT JOIN dbo.[Rentacrate$Collection Agent] CO
+			ON CO.Code = CASE when CU.[Collection Agent Code] = '' THEN SP.[Collector Code]
+				ELSE CU.[Collection Agent Code]
+				end
+		LEFT JOIN [Rentacrate$Contact] CON
+			ON CON.No_ = CU.[Primary Contact No_]
+		left join
+			(select  
+				DL.[Cust_ Ledger Entry No_],
+				(DL.Amount) as OrigAmt
+			from 
+				dbo.[Rentacrate$Detailed Cust_ Ledg_ Entry] DL
+			where 
+				DL.[Posting Date] <= @AsofDate
+				and DL.[Entry Type] = 1
+			) OA
+				on OA.[Cust_ Ledger Entry No_] = CL.[Entry No_]
+		left join dbo.[Rentacrate$Customer Accounting Period] P
+			on CL.[Cust_ Summary Invoice No_] = P.[Cust_ Summary Invoice No_] 
+			and CL.[Customer No_] = P.[Customer No_] and CL.[Cust_ Summary Invoice No_] <> ''
+	group by
+		CL.[Document No_],CL.[Document Date],CL.[Cust_ Summary Invoice No_],P.[Ending Date],CL.[External Document No_],
+		CU.[Salesperson Code],
+		SP.[Name],
+		CU.[Global Dimension 1 Code],
+		CU.No_ ,
+		CU.[Name],
+		(CASE when CU.[Collection Agent Code] = '' THEN SP.[Collector Code]
+			ELSE CU.[Collection Agent Code]
+			END),
+		CO.Name,
+		CU.[Payment Terms Code] + ' - ' + PT.Description ,
+		CU.[Credit Limit (LCY)],
+		CON.[Job Title],
+		CON.Name,
+		CON.[Phone No_],
+		CON.[E-Mail],
+		CU.Blocked,
+		CU.[OP Period Type]
+	order by
+		CU.[Salesperson Code],
+		CU.No_
+
+
+	--Update Shred Trxn's based on document number
+	update #rac_trxn
+	set
+		Company = 'Shred'
+	where
+		left(DocNbr, 2) = 'SS'
+
+	--Update RAC Trxn's based on document number
+	update #rac_trxn
+	set
+		Company = 'RAC'
+	where
+		left(DocNbr, 3) = 'INV'
+
+	insert into #rac_cust_nbr
+	select distinct
+		r.CustNbr,
+		r.Company
+	from #rac_trxn r
+	where
+		r.Company is not null
+		and r.Company = 'RAC'
+	
+
+	insert into #shred_cust_nbr
+	select distinct
+		rt.CustNbr
+	from #rac_trxn rt
+		left join #rac_cust_nbr rc
+			on rt.CustNbr = rc.CustNbr
+		left join (
+			select distinct
+				rt2.CustNbr
+			from #rac_trxn rt2
+			where
+				rt2.Company = 'Shred'
+			) rt3
+				on rt.CustNbr = rt3.CustNbr
+	where
+		rc.CustNbr is null
+		and rt3.CustNbr is not null
+		and rt.Company is null
+
+	update rt
+	set
+		Company = 'Shred'
+	from #rac_trxn rt
+		left join #shred_cust_nbr scn
+			on rt.CustNbr = scn.CustNbr
+	where
+		rt.Company is null
+		and scn.CustNbr is not null
+
+	--Update remainder Company to RAC
+	update #rac_trxn
+	set
+		Company = 'RAC'
+	where
+		Company is null
+	
+	delete from #rac_cust_nbr;
+	delete from #shred_cust_nbr;
+	set @count = @count + 1;
+	set @datetemp = DATEADD("d",-datepart("d",@datetemp),@datetemp)
+	
+end
+
+------------------------------------Data Results---------------------------------------------------------------
+
+
+
+select
+	rt.ReportDate,
+	rt.Company,
+	rt.CustNbr,
+	rt.CustName,
+	sum(rt.OpenBal) as OpenBal,
+	sum(rt.DocDate_NotDue) as NotDue,
+	sum(rt.DocDate_0_30) as [0-30],
+	sum(rt.DocDate_31_60) as [31-60],
+	sum(rt.DocDate_61_90) as [61-90],
+	sum(rt.DocDate_91_120) as [91-120],
+	sum(rt.DocDate_Over_120) as Over120
+from #rac_trxn rt
+group by
+	rt.ReportDate,
+	rt.Company,
+	rt.CustNbr,
+	rt.CustName
+
+
+
+
+
+drop table #rac_trxn
+drop table #rac_cust_nbr
+drop table #shred_cust_nbr

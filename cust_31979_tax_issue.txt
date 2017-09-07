@@ -1,0 +1,41 @@
+--Use TNDCSQL03
+declare @datestart date = '2017-01-01'
+declare @dateend date = getdate()
+
+select
+	sih.[Sell-to Customer No_] as Cust_Nbr,
+	sih.[Sell-to Customer Name] as Cust_Name,
+	sih.[Ship-to Code],
+	c.[AvaTax Non-Tax Entity Code] as Customer_NonTax_Entity_Code,
+	st.[AvaTax Non-Tax Entity Code] as ShipTo_NonTax_Entity_Code,
+	case when c.[AvaTax Non-Tax Entity Code] = '' then 'Y' else 'N' end as Taxable_Customer,
+	case when st.[AvaTax Non-Tax Entity Code] = '' then 'Y' else 'N' end as Taxable_ShipTo,
+	sih.No_ as Invoice_Nbr,
+	sih.[Posting Date] as Post_Date,		
+	sum(sil.Amount) as Sales,
+	-sum(sil.Amount - sil.[Amount Including VAT]) AS Tax
+from NAVRep.dbo.[Hi Touch$Sales Invoice Header] sih with(nolock)
+	inner join navrep.dbo.[Hi Touch$Sales Invoice Line] sil with(nolock)
+		on sih.No_ = sil.[Document No_]
+	left outer join navrep.dbo.[Hi Touch$Customer] c with(nolock)
+		on sih.[Sell-to Customer No_] = c.No_
+	left outer join navrep.dbo.[Hi Touch$Ship-to Address] st with(nolock)
+		on sih.[Sell-to Customer No_] = st.[Customer No_]
+		and sih.[Ship-to Code] = st.Code
+where
+	sih.[Sell-to Customer No_] = '31979'
+	and sih.[Posting Date] between @datestart and @dateend
+	
+group by
+	sih.[Sell-to Customer No_],
+	sih.[Sell-to Customer Name],
+	sih.[Ship-to Code],
+	c.[AvaTax Non-Tax Entity Code],
+	st.[AvaTax Non-Tax Entity Code],
+	case when c.[AvaTax Non-Tax Entity Code] = '' then 'Y' else 'N' end,
+	case when st.[AvaTax Non-Tax Entity Code] = '' then 'Y' else 'N' end,
+	sih.No_,
+	sih.[Posting Date],
+	sih.[Location Code]
+	
+	

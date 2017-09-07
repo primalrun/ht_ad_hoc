@@ -1,0 +1,2231 @@
+USE [Playground]
+GO
+
+/****** Object:  StoredProcedure [myop\jason.walker].[proc_gl_account_reporting]    Script Date: 8/31/2017 10:13:43 AM ******/
+DROP PROCEDURE [myop\jason.walker].[proc_gl_account_reporting]
+GO
+
+/****** Object:  StoredProcedure [myop\jason.walker].[proc_gl_account_reporting]    Script Date: 8/31/2017 10:13:43 AM ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+
+
+
+
+
+
+CREATE PROCEDURE [myop\jason.walker].[proc_gl_account_reporting]
+	
+AS
+
+if (exists(
+select
+  1
+from INFORMATION_SCHEMA.TABLES ist
+where
+  ist.TABLE_CATALOG = 'Playground'
+  and ist.TABLE_SCHEMA = 'myop\jason.walker'
+  and ist.TABLE_NAME = 'gl_account_reporting'
+))
+
+begin
+  drop table Playground.[myop\jason.walker].gl_account_reporting
+end
+
+create table Playground.[myop\jason.walker].gl_account_reporting (
+    company varchar(20),	
+	gl_account varchar(10),
+	account_description varchar(75),
+	financial_statement varchar(30),
+    level_1 varchar(75),
+	level_2 varchar(75),
+	report_multiplier smallint)
+
+
+--GL Accounts Load
+insert into Playground.[myop\jason.walker].gl_account_reporting (company, gl_account, account_description)
+select
+	'HT' as company,
+	gl.No_ as gl_account,
+	gl.Name as account_description
+from NAVRep.NAVRep.dbo.[Hi Touch$G_L Account] gl with(nolock)
+
+union all
+
+select
+	'MYOP' as company,
+	gl.No_ as gl_account,
+	gl.Name as account_description
+from NAVRep.NAVRep.dbo.[MYOP$G_L Account] gl with(nolock)
+
+union all
+
+select
+	'RAC' as company,
+	gl.gl_account,
+	gl.account_description
+from Playground.[myop\jason.walker].gl_rac gl
+
+--Report Multipliers default to 1
+update [myop\jason.walker].gl_account_reporting
+set report_multiplier = 1
+
+--HT Start-------------------------------------------------------------------------------------------------------------------------------
+
+--HT Sales Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Sales'
+where
+	company = 'HT'
+	and (gl_account between '31000' and '35799' or gl_account between '35801' and '35999')
+
+--HT Cost Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Cost'
+where
+	company = 'HT'
+	and (gl_account in ('41000', '41100') 
+	or gl_account in ('42000', '42100', '44000')
+	or gl_account between '45100' and '45601')
+
+--HT Adjustment to Margin Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Adjustment to Margin'
+where
+	company = 'HT'
+	and (gl_account in ('45650', '45660', '45640', '45750', '35800', '41520', '45800') 	
+	or gl_account between '45900' and '45911')
+
+--HT Rebates Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Rebates'
+where
+	company = 'HT'
+	and gl_account in ('45650', '45660', '45640', '45911') 	
+	
+--HT Cash Discounts Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Cash Discounts'
+where
+	company = 'HT'
+	and gl_account = '45750'
+
+--HT Customer Discounts Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Customer Discounts'
+where
+	company = 'HT'
+	and gl_account in ('35800', '45800')
+
+--HT Cost of Goods Adjustments Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Cost of Goods Adjustments'
+where
+	company = 'HT'
+	and gl_account = '41520'
+
+--HT Other Adjustments to Margin Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Other Adjustments to Margin'
+where
+	company = 'HT'
+	and gl_account between '45900' and '45910'
+
+--HT Commissions Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Commissions'
+where
+	company = 'HT'
+	and gl_account in ('52100', '52250', '52300') 	
+	
+--HT Commissions Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Commissions'
+where
+	company = 'HT'
+	and gl_account in ('52100', '52250', '52300') 	
+
+--HT Other Personnel Expense Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Other Personnel Expense'
+where
+	company = 'HT'
+	and (gl_account in ('51230', '51200', '55830', '51900', '61130', '41900', '53310', '53550', '53400')
+	or gl_account between '53100' and '53300')
+
+--HT Salaries Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Salaries'
+where
+	company = 'HT'
+	and (gl_account in ('51230', '51200', '55830', '51900', '61130', '41900')
+	or gl_account between '53100' and '53300')
+
+--HT Bonuses Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Bonuses'
+where
+	company = 'HT'
+	and gl_account = '53310'
+	
+--HT Benefits Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Benefits'
+where
+	company = 'HT'
+	and gl_account = '53550'
+
+--HT Payroll Taxes Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Payroll Taxes'
+where
+	company = 'HT'
+	and gl_account = '53400'
+
+--HT Other Operating Expense Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Other Operating Expense'
+where
+	company = 'HT'
+	and (gl_account in (
+		'41150',
+		'41240',
+		'41310',
+		'41320',
+		'41400',
+		'41450',
+		'41500',
+		'41505',
+		'41510',
+		'41650',
+		'41700',
+		'41930',
+		'45670',
+		'51100',
+		'51150',
+		'51300',
+		'51310',
+		'51320',
+		'51350',
+		'51400',
+		'51450',
+		'51500',
+		'51600',
+		'51700',
+		'51750',
+		'51800',
+		'51930',
+		'52150',
+		'52200',
+		'53500',
+		'53570',
+		'53580',
+		'53600',
+		'54000',
+		'54200',
+		'55150',
+		'55200',
+		'55250',
+		'55255',
+		'55300',
+		'55325',
+		'55350',
+		'55400',
+		'55450',
+		'55500',
+		'55550',
+		'55600',
+		'55650',
+		'55660',
+		'55670',
+		'55700',
+		'55710',
+		'55720',
+		'55730',
+		'55740',
+		'55745',
+		'55750',
+		'55800',
+		'55820',
+		'55850',
+		'55860',
+		'55870',
+		'56000')
+	or gl_account between '54100' and '54150')
+
+--Hitouch Travel Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Travel'
+where
+	company = 'HT'
+	and gl_account in ('51450', '55820')
+
+--Hitouch Meals & Entertainment Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Meals & Entertainment'
+where
+	company = 'HT'
+	and gl_account = '55500'
+
+--Hitouch Facility Rent Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Facility Rent'
+where
+	company = 'HT'
+	and gl_account = '55700'
+
+--Hitouch Utilities Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Utilities'
+where
+	company = 'HT'
+	and gl_account = '55850'
+
+--Hitouch Facility Maintenance Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Facility Maintenance'
+where
+	company = 'HT'
+	and gl_account in ('55730', '55750')
+
+--Hitouch Fleet Fuel Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Fleet Fuel'
+where
+	company = 'HT'
+	and gl_account in ('41450', '41500', '41650', '51600')
+
+--Hitouch Fleet Repair & Maintenance Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Fleet Repair & Maintenance'
+where
+	company = 'HT'
+	and gl_account in ('41505', '51500', '51930')
+
+--Hitouch Vehicle Rent Expense Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Vehicle Rent Expense'
+where
+	company = 'HT'
+	and gl_account in ('51700', '51800', '41700')
+
+--Hitouch Outsourced Delivery Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Outsourced Delivery'
+where
+	company = 'HT'
+	and gl_account in ('41240', '41320', '51150', '51320')
+
+--Hitouch Outbound Freight Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Outbound Freight'
+where
+	company = 'HT'
+	and gl_account = '41400'
+
+--Hitouch Outbound Freight Rebates Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Outbound Freight Rebates'
+where
+	company = 'HT'
+	and gl_account = '45670'
+
+
+--Hitouch Equipment Rental Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Equipment Rental'
+where
+	company = 'HT'
+	and gl_account = '41930'
+
+--Hitouch MRO Supplies Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'MRO Supplies'
+where
+	company = 'HT'
+	and gl_account in ('41150', '41510', '51100', '55670')
+
+--Hitouch Office Freight & Postage Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Office Freight & Postage'
+where
+	company = 'HT'
+	and gl_account = '55350'
+
+--Hitouch Outside Services Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Outside Services'
+where
+	company = 'HT'
+	and gl_account in ('41310', '51300', '51310', '54200')
+
+--Hitouch IT Services & Maintenance Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'IT Services & Maintenance'
+where
+	company = 'HT'
+	and gl_account between '54100' and '54150'
+
+--Hitouch Telecom Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Telecom Expense'
+where
+	company = 'HT'
+	and gl_account in ('51750', '55800')
+
+--Hitouch Business Insurance Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Business Insurance'
+where
+	company = 'HT'
+	and gl_account in ('51400', '53500', '55400')
+
+--Hitouch Training, Dues & Subscriptions Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Training, Dues & Subscriptions'
+where
+	company = 'HT'
+	and gl_account in ('55250', '55870')
+
+--Hitouch Advertising & Marketing Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Advertising & Marketing'
+where
+	company = 'HT'
+	and gl_account in ('52150', '52200', '55255')
+
+--Hitouch Diversity Partner Fees Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Diversity Partner Fees'
+where
+	company = 'HT'
+	and gl_account = '53600'
+
+--Hitouch e-Commerce Fees Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'e-Commerce Fees'
+where
+	company = 'HT'
+	and gl_account = '56000'
+
+--Hitouch Professional Fees Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Professional Fees'
+where
+	company = 'HT'
+	and gl_account = '55450'
+
+--Hitouch Bank Charges Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Bank Charges'
+where
+	company = 'HT'
+	and gl_account in ('54000', '55650', '55660')
+
+--Hitouch Bad Debt Expense Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Bad Debt Expense'
+where
+	company = 'HT'
+	and gl_account = '55150'
+
+--Hitouch Other Taxes Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Other Taxes'
+where
+	company = 'HT'
+	and gl_account in ('55325', '55710', '55720', '55740', '55745', '51350')
+
+--Hitouch Other Expenses Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Other Expenses'
+where
+	company = 'HT'
+	and gl_account in ('53570', '53580', '55200', '55300', '55550', '55600', '55860')
+
+--Hitouch Other Income / (Expense) Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Other Income / (Expense)'
+where
+	company = 'HT'
+	and gl_account in ('61120', '61160', '71000')
+
+--Hitouch Deferred Partner Revenue Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Deferred Partner Revenue'
+where
+	company = 'HT'
+	and gl_account = '61120'
+
+--Hitouch Excluded Expenses Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Excluded Expenses'
+where
+	company = 'HT'
+	and gl_account = '61160'
+	
+--Hitouch Misc. Income Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Misc. Income'
+where
+	company = 'HT'
+	and gl_account = '71000'
+
+--Hitouch ITDA Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'ITDA'
+where
+	company = 'HT'
+	and (gl_account in ('61110', '61140', '61100', '55910', '61150', '68450')
+	or gl_account between '55100' and '55110')
+
+--Hitouch Interest Expense Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Interest Expense'
+where
+	company = 'HT'
+	and gl_account in ('61140', '61100')
+
+--Hitouch Depreciation Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Depreciation'
+where
+	company = 'HT'
+	and gl_account = '55910'
+
+--Hitouch Amortization Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Amortization'
+where
+	company = 'HT'
+	and gl_account between '55100' and '55110'
+
+--Hitouch State Income Taxes Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'State Income Taxes'
+where
+	company = 'HT'
+	and gl_account in ('61110', '61150', '68450')
+
+--Hitouch Capex Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Capex'
+where
+	company = 'HT'
+	and gl_account between '15100' and '15900'
+
+--Hitouch Capex Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Capex'
+where
+	company = 'HT'
+	and gl_account between '15100' and '15900'
+
+--HT Stop-------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+--MYOP Start-------------------------------------------------------------------------------------------------------------------------------
+
+--MYOP Sales Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Sales'
+where
+	company = 'MYOP'
+	and gl_account between '40000' and '41000'
+
+--MYOP Cost Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Cost'
+where
+	company = 'MYOP'
+	and gl_account = '50000'
+
+--MYOP Adjustment to Margin Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Adjustment to Margin'
+where
+	company = 'MYOP'
+	and gl_account in ('52000', '52100', '52200', '52300', '55500', '55300', '51100', '51000', '50100', '55600', '55400', '51050') 	
+	
+--MYOP Rebates Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Rebates'
+where
+	company = 'MYOP'
+	and gl_account in ('52000', '52100', '52200', '52300') 	
+	
+--MYOP Cash Discounts Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Cash Discounts'
+where
+	company = 'MYOP'
+	and gl_account = '55500'
+
+--MYOP Customer Discounts Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Customer Discounts'
+where
+	company = 'MYOP'
+	and gl_account = '55300'
+
+--MYOP Cost of Goods Adjustments Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Cost of Goods Adjustments'
+where
+	company = 'MYOP'
+	and gl_account in ('51100', '51000', '50100')
+
+--MYOP Other Adjustments to Margin Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Other Adjustments to Margin'
+where
+	company = 'MYOP'
+	and gl_account in ('55600', '55400', '51050')
+
+--MYOP Commissions Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Commissions'
+where
+	company = 'MYOP'
+	and gl_account in ('60500', '62500') 	
+	
+--MYOP Commissions Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Commissions'
+where
+	company = 'MYOP'
+	and gl_account in ('60500', '62500')
+
+--MYOP Other Personnel Expense Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Other Personnel Expense'
+where
+	company = 'MYOP'
+	and gl_account in ('60000', '69000', '60400', '60600', '60100', '60300')
+
+
+--MYOP Salaries Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Salaries'
+where
+	company = 'MYOP'
+	and gl_account in ('60000', '69000', '60400')
+	
+
+--MYOP Bonuses Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Bonuses'
+where
+	company = 'MYOP'
+	and gl_account = '60600'
+	
+--MYOP Benefits Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Benefits'
+where
+	company = 'MYOP'
+	and gl_account = '60100'
+
+--MYOP Payroll Taxes Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Payroll Taxes'
+where
+	company = 'MYOP'
+	and gl_account = '60300'
+
+
+--MYOP Other Operating Expense Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Other Operating Expense'
+where
+	company = 'MYOP'
+	and (gl_account in (
+		'62000',
+		'62100',
+		'64000',
+		'63000',
+		'64050',
+		'64600',
+		'64400',
+		'64700',
+		'64900',
+		'64300',
+		'66200',
+		'66000',
+		'64100',
+		'64200',
+		'62400',
+		'65100',
+		'65600',
+		'65300',
+		'65200',
+		'63100',
+		'60200',
+		'64800',
+		'65400',
+		'66100',
+		'68100',
+		'68500',
+		'68200',
+		'67100',
+		'67200',
+		'67000',
+		'60820',
+		'60825',
+		'65000',
+		'68300',
+		'53580',
+		'55860',
+		'65500',
+		'65700',
+		'65800',
+		'67300')
+		or gl_account between '61000' and '61300'
+		or gl_account between '62200' and '62300')
+
+--MYOP Travel Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Travel'
+where
+	company = 'MYOP'
+	and gl_account = '62000'
+
+--MYOP Meals & Entertainment Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Meals & Entertainment'
+where
+	company = 'MYOP'
+	and gl_account = '62100'
+
+--MYOP Facility Rent Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Facility Rent'
+where
+	company = 'MYOP'
+	and gl_account = '64000'
+
+--MYOP Utilities Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Utilities'
+where
+	company = 'MYOP'
+	and gl_account in ('63000', '64050')
+
+--MYOP Facility Maintenance Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Facility Maintenance'
+where
+	company = 'MYOP'
+	and gl_account = '64600'
+
+--MYOP Fleet Fuel Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Fleet Fuel'
+where
+	company = 'MYOP'
+	and gl_account = '64400'
+
+--MYOP Fleet Repair & Maintenance Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Fleet Repair & Maintenance'
+where
+	company = 'MYOP'
+	and gl_account in ('64700', '64900')
+
+--MYOP Vehicle Rent Expense Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Vehicle Rent Expense'
+where
+	company = 'MYOP'
+	and gl_account = '64300'
+
+--MYOP Outsourced Delivery Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Outsourced Delivery'
+where
+	company = 'MYOP'
+	and gl_account = '66200'
+
+--MYOP Outbound Freight Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Outbound Freight'
+where
+	company = 'MYOP'
+	and gl_account = '66000'
+
+--MYOP Outbound Freight Rebates Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Outbound Freight Rebates'
+where
+	company = 'MYOP'
+	and gl_account = '66100'
+
+--MYOP Equipment Rental Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Equipment Rental'
+where
+	company = 'MYOP'
+	and gl_account in ('64100', '64200')
+
+--MYOP MRO Supplies Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'MRO Supplies'
+where
+	company = 'MYOP'
+	and gl_account in ('62400', '65100')
+
+--MYOP Office Freight & Postage Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Office Freight & Postage'
+where
+	company = 'MYOP'
+	and gl_account = '65600'
+
+--MYOP Outside Services Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Outside Services'
+where
+	company = 'MYOP'
+	and gl_account = '65300'
+
+--MYOP IT Services & Maintenance Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'IT Services & Maintenance'
+where
+	company = 'MYOP'
+	and gl_account = '65200'
+
+--MYOP Telecom Expense Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Telecom Expense'
+where
+	company = 'MYOP'
+	and gl_account = '63100'
+
+--MYOP Business Insurance Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Business Insurance'
+where
+	company = 'MYOP'
+	and gl_account in ('60200', '64800', '65400')
+
+--MYOP Training, Dues & Subscriptions Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Training, Dues & Subscriptions'
+where
+	company = 'MYOP'
+	and gl_account between '62200' and '62300'
+
+--MYOP Advertising & Marketing Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Advertising & Marketing'
+where
+	company = 'MYOP'
+	and gl_account between '61000' and '61300'
+
+--MYOP Diversity Partner Fees Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Diversity Partner Fees'
+where
+	company = 'MYOP'
+	and gl_account = '68100'
+
+--MYOP e-Commerce Fees Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'e-Commerce Fees'
+where
+	company = 'MYOP'
+	and gl_account = '68500'
+
+--MYOP Professional Fees Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Professional Fees'
+where
+	company = 'MYOP'
+	and gl_account = '68200'
+
+--MYOP Bank Charges Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Bank Charges'
+where
+	company = 'MYOP'
+	and gl_account in ('67100', '67200')
+
+--MYOP Bad Debt Expense Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Bad Debt Expense'
+where
+	company = 'MYOP'
+	and gl_account = '67000'
+
+--MYOP Other Taxes Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Other Taxes'
+where
+	company = 'MYOP'
+	and gl_account in ('60820', '60825', '65000', '68300')
+
+--MYOP Other Expenses Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Other Expenses'
+where
+	company = 'MYOP'
+	and gl_account in ('53580', '55860', '65500', '65700', '65800', '67300')
+
+--MYOP Other Income / (Expense) Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Other Income / (Expense)'
+where
+	company = 'MYOP'
+	and gl_account in ('72000', '73000', '71000')
+
+--MYOP Deferred Partner Revenue Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Deferred Partner Revenue'
+where
+	company = 'MYOP'
+	and gl_account = '72000'
+
+--MYOP Excluded Expenses Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Excluded Expenses'
+where
+	company = 'MYOP'
+	and gl_account = '73000'
+	
+--MYOP Misc. Income Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Misc. Income'
+where
+	company = 'MYOP'
+	and gl_account = '71000'
+
+--MYOP ITDA Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'ITDA'
+where
+	company = 'MYOP'
+	and gl_account in ('67400', '70000', '64500', '68000', '68400', '68450')	
+
+--MYOP Interest Expense Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Interest Expense'
+where
+	company = 'MYOP'
+	and gl_account in ('67400', '70000')
+
+--MYOP Depreciation Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Depreciation'
+where
+	company = 'MYOP'
+	and gl_account = '64500'
+
+--MYOP Amortization Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Amortization'
+where
+	company = 'MYOP'
+	and gl_account  = '68000'
+
+--MYOP State Income Taxes Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'State Income Taxes'
+where
+	company = 'MYOP'
+	and gl_account in ('68400', '68450')
+
+--MYOP Capex Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Capex'
+where
+	company = 'MYOP'
+	and gl_account between '15000' and '15800'
+
+--MYOP Capex Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Capex'
+where
+	company = 'MYOP'
+	and gl_account between '15000' and '15800'
+
+--MYOP Stop-------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+--RAC Start-------------------------------------------------------------------------------------------------------------------------------
+--RAC Sales Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Sales'
+where
+	company = 'RAC'
+	and (gl_account between '42000' and '45000'
+	or gl_account = '46000')
+
+--RAC Cost Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Cost'
+where
+	company = 'RAC'
+	and (gl_account between '56000' and '58400'
+	or gl_account = '58600'
+	or gl_account between '58900' and '59200'
+	or gl_account between '59500' and '59999')
+
+--RAC Commissions Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Commissions'
+where
+	company = 'RAC'
+	and gl_account between '58700' and '58800'
+	
+--RAC Commissions Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Commissions'
+where
+	company = 'RAC'
+	and gl_account between '58700' and '58800'
+
+--RAC Other Personnel Expense Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Other Personnel Expense'
+where
+	company = 'RAC'
+	and (gl_account between '60000' and '60020'
+	or gl_account in ('60840', '68100', '60100', '60300'))
+
+
+--RAC Salaries Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Salaries'
+where
+	company = 'RAC'
+	and (gl_account between '60000' and '60020'
+	or gl_account in ('60840', '68100'))	
+
+--RAC Benefits Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Benefits'
+where
+	company = 'RAC'
+	and gl_account = '60100'
+
+--RAC Payroll Taxes Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Payroll Taxes'
+where
+	company = 'RAC'
+	and gl_account = '60300'
+
+--RAC Other Operating Expense Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Other Operating Expense'
+where
+	company = 'RAC'
+	and (gl_account in (
+		'62000',
+		'62100',
+		'64000',
+		'64100',
+		'63000',
+		'64700',
+		'64600',
+		'60800',
+		'60810',
+		'62600',
+		'65100',
+		'67500',
+		'65600',
+		'65100',
+		'63200',
+		'63100',
+		'63150',
+		'60200',
+		'65400',
+		'62200',
+		'62300',
+		'61300',
+		'68200',
+		'67100',
+		'67200',
+		'67000',
+		'60820',
+		'65000',
+		'60825',
+		'68300',
+		'65700',
+		'65500',
+		'67300',
+		'67600',
+		'67700')
+		or gl_account between '65200' and '65350')		
+
+--RAC Travel Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Travel'
+where
+	company = 'RAC'
+	and gl_account = '62000'
+
+--RAC Meals & Entertainment Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Meals & Entertainment'
+where
+	company = 'RAC'
+	and gl_account = '62100'
+
+--RAC Equipment Rental Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Equipment Rental'
+where
+	company = 'RAC'
+	and gl_account = '64100'
+
+--RAC Facility Rent Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Facility Rent'
+where
+	company = 'RAC'
+	and gl_account = '64000'
+
+--RAC Utilities Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Utilities'
+where
+	company = 'RAC'
+	and gl_account = '63000'
+
+--RAC Facility Maintenance Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Facility Maintenance'
+where
+	company = 'RAC'
+	and gl_account = '64700'
+
+--RAC Fleet Repair & Maintenance Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Fleet Repair & Maintenance'
+where
+	company = 'RAC'
+	and gl_account = '64600'
+
+--RAC MRO Supplies Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'MRO Supplies'
+where
+	company = 'RAC'
+	and gl_account in ('60800', '60810', '62600', '65100', '67500')
+
+--RAC Office Freight & Postage Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Office Freight & Postage'
+where
+	company = 'RAC'
+	and gl_account = '65600'
+
+--RAC Outside Services Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Outside Services'
+where
+	company = 'RAC'
+	and gl_account = '63200'
+
+--RAC IT Services & Maintenance Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'IT Services & Maintenance'
+where
+	company = 'RAC'
+	and gl_account between '65200' and '65350'
+
+--RAC Telecom Expense Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Telecom Expense'
+where
+	company = 'RAC'
+	and gl_account in ('63100', '63150')
+
+--RAC Business Insurance Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Business Insurance'
+where
+	company = 'RAC'
+	and gl_account in ('60200', '65400')
+
+--RAC Training, Dues & Subscriptions Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Training, Dues & Subscriptions'
+where
+	company = 'RAC'
+	and gl_account in ('62200', '62300')
+
+--RAC Advertising & Marketing Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Advertising & Marketing'
+where
+	company = 'RAC'
+	and gl_account = '61300'
+
+--RAC Professional Fees Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Professional Fees'
+where
+	company = 'RAC'
+	and gl_account = '68200'
+
+--RAC Bank Charges Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Bank Charges'
+where
+	company = 'RAC'
+	and gl_account in ('67100', '67200')
+
+--RAC Bad Debt Expense Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Bad Debt Expense'
+where
+	company = 'RAC'
+	and gl_account = '67000'
+
+--RAC Other Taxes Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Other Taxes'
+where
+	company = 'RAC'
+	and gl_account in ('60820', '60825', '65000', '68300')
+
+--RAC Other Expenses Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Other Expenses'
+where
+	company = 'RAC'
+	and gl_account in ('65700', '65500', '67300', '67600', '67700')
+
+--RAC Other Income / (Expense) Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Other Income / (Expense)'
+where
+	company = 'RAC'
+	and gl_account in ('68210', '61160', '71000', '69000')
+
+--RAC Excluded Expenses Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Excluded Expenses'
+where
+	company = 'RAC'
+	and gl_account in ('68210', '61160')
+	
+--RAC Misc. Income Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Misc. Income'
+where
+	company = 'RAC'
+	and gl_account = '71000'
+
+	--RAC Gain/(Loss) On Fixed Asset Disposal Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Gain/(Loss) On Fixed Asset Disposal'
+where
+	company = 'RAC'
+	and gl_account = '69000'
+
+--RAC ITDA Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'ITDA'
+where
+	company = 'RAC'
+	and gl_account in ('67400', '58500', '59300', '64500', '68000', '68400')	
+
+--RAC Interest Expense Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Interest Expense'
+where
+	company = 'RAC'
+	and gl_account in ('67400', '70000')
+
+--RAC Depreciation Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Depreciation'
+where
+	company = 'RAC'
+	and gl_account = '64500'
+
+--RAC Amortization Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Amortization'
+where
+	company = 'RAC'
+	and gl_account  = '68000'
+
+--RAC State Income Taxes Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'State Income Taxes'
+where
+	company = 'RAC'
+	and gl_account in ('68400', '68450')
+
+--RAC Capex Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Capex'
+where
+	company = 'RAC'
+	and gl_account between '15000' and '15950'
+
+--RAC Capex Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Capex'
+where
+	company = 'RAC'
+	and gl_account between '15000' and '15950'
+
+--RAC Stop-------------------------------------------------------------------------------------------------------------------------------
+
+--Update level_2 for all nulls
+update [myop\jason.walker].gl_account_reporting
+set level_2 = account_description
+where
+	level_2 is null
+
+
+--Financial Statement
+--HT
+update [myop\jason.walker].gl_account_reporting
+set financial_statement = 'P&L'
+where
+	company = 'HT'
+	and gl_account between '30000' and '69999'
+
+--MYOP
+update [myop\jason.walker].gl_account_reporting
+set financial_statement = 'P&L'
+where
+	company = 'MYOP'
+	and gl_account between '40000' and '79999'
+
+--RAC
+update [myop\jason.walker].gl_account_reporting
+set financial_statement = 'P&L'
+where
+	company = 'RAC'
+	and gl_account between '40000' and '79999'
+
+
+
+
+--Balance Sheet
+--HT
+update [myop\jason.walker].gl_account_reporting
+set financial_statement = 'BS'
+where
+	company = 'HT'
+	and gl_account between '10000' and '29999'
+
+--MYOP
+update [myop\jason.walker].gl_account_reporting
+set financial_statement = 'BS'
+where
+	company = 'MYOP'
+	and gl_account between '10000' and '39999'
+
+--RAC
+update [myop\jason.walker].gl_account_reporting
+set financial_statement = 'BS'
+where
+	company = 'RAC'
+	and gl_account between '10000' and '39999'
+
+
+-------------------------------------------------------------------HT Balance Sheet
+--HT Asset Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Asset'
+where
+	company = 'HT'
+	and (gl_account between '10000' and '11160'
+	or gl_account between '12100' and '12150'
+	or gl_account between '14200' and '14215'
+	or gl_account between '15100' and '16900'
+	or gl_account in (
+		'12200',
+		'13100',
+		'13150',
+		'14650',
+		'14220',
+		'13200',
+		'13250',
+		'17240',
+		'17241',
+		'13400',
+		'17800',
+		'23050',
+		'17150',
+		'17100',
+		'23000',
+		'13300',
+		'17210',
+		'17211',
+		'17250',
+		'17251',
+		'17200',
+		'17201',
+		'17050',
+		'19700',
+		'19800'))
+
+--HT Cash Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Cash'
+where
+	company = 'HT'
+	and gl_account between '10000' and '11160'
+
+--HT Accounts Receivable - Trade Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Accounts Receivable - Trade'
+where
+	company = 'HT'
+	and gl_account between '12100' and '12150'
+
+--HT Allowance for Bad Debt Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Allowance for Bad Debt'
+where
+	company = 'HT'
+	and gl_account = '12200'
+
+--HT Other Receivables Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Other Receivables'
+where
+	company = 'HT'
+	and gl_account in ('13150', '17050')
+
+--HT Inventory - Supplies Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Inventory - Supplies'
+where
+	company = 'HT'
+	and gl_account between '14200' and '14215'
+
+--HT Inventory Reserve Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Inventory Reserve'
+where
+	company = 'HT'
+	and gl_account = '14650'
+
+--HT Prepaid Inventory Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Prepaid Inventory'
+where
+	company = 'HT'
+	and gl_account = '14220'
+
+--HT Prepaid Expenses Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Prepaid Expenses'
+where
+	company = 'HT'
+	and gl_account in ('13200', '13250')
+
+--HT Deferred Financing Costs (Net of Amortization) Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Deferred Financing Costs (Net of Amortization)'
+where
+	company = 'HT'
+	and gl_account in ('17240', '17241', '13400')
+
+--HT Intercompany Balances Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Intercompany Balances'
+where
+	company = 'HT'
+	and gl_account in ('23050', '17150', '19700', '17100', '23000', '19800')
+
+--HT Fixed Assets, Net Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Fixed Assets, Net'
+where
+	company = 'HT'
+	and gl_account between '15100' and '16900'
+
+--HT Other Assets Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Other Assets'
+where
+	company = 'HT'
+	and gl_account in ('13300', '17800')
+
+--HT Goodwill, Net Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Goodwill, Net'
+where
+	company = 'HT'
+	and gl_account in ('17210', '17211')
+
+--HT Intangible Assets, Net Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Intangible Assets, Net'
+where
+	company = 'HT'
+	and gl_account in ('13100', '17250', '17251', '17200', '17201')
+
+
+--HT Liability Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Liability'
+where
+	company = 'HT'
+	and (gl_account between '21100' and '21160'
+	or gl_account between '23200' and '23400'
+	or gl_account between '22000' and '22500'
+	or gl_account in (
+		'23500',
+		'25300',
+		'23100',
+		'23450',
+		'25350',
+		'23150',
+		'25100',
+		'22500',
+		'22600',
+		'25325',
+		'25200',
+		'21050',
+		'21170',
+		'23151',
+		'23160',
+		'24000',
+		'24100',
+		'25310',
+		'25311',
+		'25500',
+		'27000'
+	))
+
+--HT Accounts Payable Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Accounts Payable'
+where
+	company = 'HT'
+	and gl_account between '21100' and '21160'
+
+--HT Accrued Liabilities Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Accrued Liabilities'
+where
+	company = 'HT'
+	and (gl_account between '23200' and '23400'
+	or gl_account in ('21050', '21170'))
+
+--HT Accrued Compensation Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Accrued Compensation'
+where
+	company = 'HT'
+	and gl_account in ('23500', '23151', '23160')
+
+--HT Taxes Payable Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Taxes Payable'
+where
+	company = 'HT'
+	and gl_account between '22000' and '22500'
+
+--HT Bank Line of Credit Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Bank Line of Credit'
+where
+	company = 'HT'
+	and gl_account = '25300'
+
+--HT Other Current Liabilities Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Other Current Liabilities'
+where
+	company = 'HT'
+	and gl_account in ('23450', '25350', '23150', '23100')
+
+--HT Capital Leases (Current) Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Capital Leases (Current)'
+where
+	company = 'HT'
+	and gl_account = '25100'
+
+--HT Notes Payable Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Notes Payable'
+where
+	company = 'HT'
+	and gl_account in ('25500', '22600', '24100', '25500', '27000')
+
+--HT Deferred Partner Revenue (Long Term) Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Deferred Partner Revenue (Long Term)'
+where
+	company = 'HT'
+	and gl_account in ('25325', '25310', '25311')
+
+--HT Term Loan (Current) Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Term Loan (Current)'
+where
+	company = 'HT'
+	and gl_account = '24000'
+
+--HT Term Loan (Long Term) Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Term Loan (Long Term)'
+where
+	company = 'HT'
+	and gl_account = '25200'
+
+
+--HT Equity Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Equity'
+where
+	company = 'HT'
+	and gl_account in ('27100', '27600', '27500')
+
+--HT Member's Equity Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Member''s Equity'
+where
+	company = 'HT'
+	and gl_account in ('27100')
+
+--HT Preferred Equity Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Preferred Equity'
+where
+	company = 'HT'
+	and gl_account in ('27500')
+
+
+--HT Retained Earnings Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Retained Earnings'
+where
+	company = 'HT'
+	and gl_account = '27600'
+
+
+
+
+
+-------------------------------------------------------------------MYOP Balance Sheet
+--MYOP Asset Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Asset'
+where
+	company = 'MYOP'
+	and (gl_account between '10100' and '10300'
+	or gl_account between '11000' and '11200'
+	or gl_account between '13000' and '13200'
+	or gl_account between '13400' and '13500'
+	or gl_account between '18100' and '18200'
+	or gl_account between '18300' and '18400'
+	or gl_account between '18500' and '18600'
+	or gl_account between '18700' and '18800'
+	or gl_account between '15000' and '16700'
+	or gl_account in (
+		'11900',
+		'12000',
+		'12900',
+		'14100',
+		'14650',
+		'14000',
+		'14200',
+		'14300',
+		'14600',
+		'16800',
+		'14500',
+		'14400',
+		'19400',
+		'19000',
+		'19200',
+		'19300',
+		'19100',
+		'17000',
+		'17100',
+		'18050',
+		'18000',
+		'10410',
+		'10420',
+		'10440',
+		'10500',
+		'19600',
+		'19800'
+	))
+
+--MYOP Cash Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Cash'
+where
+	company = 'MYOP'
+	and (gl_account between '10100' and '10300'
+	or gl_account in ('10410', '10420', '10440', '10500'))
+
+--MYOP Accounts Receivable - Trade Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Accounts Receivable - Trade'
+where
+	company = 'MYOP'
+	and gl_account between '11000' and '11200'
+
+--MYOP Allowance for Bad Debt Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Allowance for Bad Debt'
+where
+	company = 'MYOP'
+	and gl_account = '11900'
+
+--MYOP Supplier Rebates Receivable Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Supplier Rebates Receivable'
+where
+	company = 'MYOP'
+	and gl_account between '13000' and '13200'
+
+--MYOP Other Receivables Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Other Receivables'
+where
+	company = 'MYOP'
+	and gl_account between '13400' and '13500'
+
+--MYOP Inventory - Supplies Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Inventory - Supplies'
+where
+	company = 'MYOP'
+	and gl_account = '12000'
+
+--MYOP Inventory Reserve Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Inventory Reserve'
+where
+	company = 'MYOP'
+	and gl_account = '12900'
+
+--MYOP Prepaid Inventory 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Prepaid Inventory'
+where
+	company = 'MYOP'
+	and gl_account in ('14100', '14650')
+
+--MYOP Prepaid Expenses Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Prepaid Expenses'
+where
+	company = 'MYOP'
+	and gl_account in ('14000', '14200', '14300', '14500')
+
+--MYOP Deferred Financing Costs (Net of Amortization) Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Deferred Financing Costs (Net of Amortization)'
+where
+	company = 'MYOP'
+	and gl_account in ('14600', '16800')
+
+--MYOP Intercompany Balances Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Intercompany Balances'
+where
+	company = 'MYOP'
+	and gl_account in ('19400', '19000', '19200', '19600', '19300', '19100', '19800')
+
+--MYOP Fixed Assets, Net Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Fixed Assets, Net'
+where
+	company = 'MYOP'
+	and gl_account between '15000' and '16700'
+
+--MYOP Other Assets Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Other Assets'
+where
+	company = 'MYOP'
+	and gl_account in ('17000', '17100', '14400')
+
+--MYOP Goodwill, Net Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Goodwill, Net'
+where
+	company = 'MYOP'
+	and gl_account in ('18050', '18000')
+
+--MYOP Intangible Assets, Net Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Intangible Assets, Net'
+where
+	company = 'MYOP'
+	and (gl_account between '18100' and '18200'
+	or gl_account between '18300' and '18400'
+	or gl_account between '18500' and '18600'
+	or gl_account between '18700' and '18800')
+
+--MYOP Liability Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Liability'
+where
+	company = 'MYOP'
+	and (gl_account between '21000' and '21080'
+	or gl_account between '21100' and '21300'
+	or gl_account between '23000' and '23100'
+	or gl_account between '26000' and '26100'
+	or gl_account in (
+		'20000',
+		'20300',
+		'19500',
+		'22000',
+		'20100',
+		'20200',
+		'10000',
+		'24100',
+		'23200',
+		'23300',
+		'23400',
+		'26200',
+		'23500',
+		'25000',
+		'24000',
+		'24200',
+		'27000',
+		'21090',
+		'23151',
+		'23210',
+		'23255',
+		'23260',
+		'23261',
+		'23265'
+	))
+
+--MYOP Accounts Payable Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Accounts Payable'
+where
+	company = 'MYOP'
+	and gl_account in ('20000', '20300')
+
+--MYOP Accrued Liabilities Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Accrued Liabilities'
+where
+	company = 'MYOP'
+	and (gl_account between '21000' and '21080'
+	or gl_account in ('19500', '21090', '23255', '23260', '23261', '23265'))
+
+--MYOP Accrued Compensation Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Accrued Compensation'
+where
+	company = 'MYOP'
+	and (gl_account between '21100' and '21300'
+	or gl_account = '23151')
+
+--MYOP Taxes Payable Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Taxes Payable'
+where
+	company = 'MYOP'
+	and gl_account in ('22000', '23500')
+
+--MYOP Checks Written In Excess of Bank Balance Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Checks Written In Excess of Bank Balance'
+where
+	company = 'MYOP'
+	and gl_account in ('20100', '20200', '10000')
+
+--MYOP Bank Line of Credit Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Bank Line of Credit'
+where
+	company = 'MYOP'
+	and gl_account = '24100'
+
+--MYOP Other Current Liabilities Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Other Current Liabilities'
+where
+	company = 'MYOP'
+	and gl_account in ('23200', '23300', '23400', '26200', '23210')
+
+--MYOP Deferred Partner Revenue (Current) Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Deferred Partner Revenue (Current)'
+where
+	company = 'MYOP'
+	and gl_account between '23000' and '23100'
+
+--MYOP Notes Payable Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Notes Payable'
+where
+	company = 'MYOP'
+	and gl_account in ('25000', '24200')
+
+--MYOP Term Loan (Current) Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Term Loan (Current)'
+where
+	company = 'MYOP'
+	and gl_account = '24000'
+
+--MYOP Deferred Partner Revenue (Long Term) Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Deferred Partner Revenue (Long Term)'
+where
+	company = 'MYOP'
+	and gl_account between '26000' and '26100'
+
+--MYOP Term Loan (Long Term) Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Term Loan (Long Term)'
+where
+	company = 'MYOP'
+	and gl_account = '27000'
+
+
+
+--MYOP Equity Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Equity'
+where
+	company = 'MYOP'
+	and gl_account in ('30000', '31000', '30500')
+
+
+--MYOP Member's Equity Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Member''s Equity'
+where
+	company = 'MYOP'
+	and gl_account in ('30000')
+
+--MYOP Preferred Equity Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Preferred Equity'
+where
+	company = 'MYOP'
+	and gl_account in ('30500')
+
+
+--MYOP Retained Earnings Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Retained Earnings'
+where
+	company = 'MYOP'
+	and gl_account = '31000'
+
+
+
+
+-------------------------------------------------------------------RAC Balance Sheet
+--RAC Asset Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Asset'
+where
+	company = 'RAC'
+	and (gl_account between '10000' and '10400'
+	or gl_account between '11000' and '11300'
+	or gl_account between '18500' and '18600'
+	or gl_account between '14600' and '16950'
+	or gl_account between '18000' and '18050'
+	or gl_account between '18100' and '18200'
+	or gl_account in (
+		'10510',
+		'10520',
+		'11900',
+		'13500',
+		'13600',
+		'12000',
+		'14000',
+		'14300',
+		'19300',
+		'19000',
+		'19200',
+		'19400',
+		'17100',
+		'18700',
+		'10420',
+		'10440',
+		'10450',
+		'10500',
+		'13400',
+		'19600',
+		'19700',
+		'10410'
+	))
+
+
+--RAC Cash Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Cash'
+where
+	company = 'RAC'
+	and (gl_account between '10000' and '10400'
+	or gl_account in ('10420', '10440', '10450', '10500', '10410', '10510', '10520'))
+
+--RAC Accounts Receivable - Trade Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Accounts Receivable - Trade'
+where
+	company = 'RAC'
+	and gl_account between '11000' and '11300'
+
+--RAC Allowance for Bad Debt Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Allowance for Bad Debt'
+where
+	company = 'RAC'
+	and gl_account = '11900'
+
+--RAC Other Receivables Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Other Receivables'
+where
+	company = 'RAC'
+	and gl_account in ('13500', '13600', '13400')
+
+--RAC Inventory - Supplies Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Inventory - Supplies'
+where
+	company = 'RAC'
+	and gl_account = '12000'
+
+--RAC Prepaid Expenses Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Prepaid Expenses'
+where
+	company = 'RAC'
+	and gl_account in ('14000', '14300')
+
+--RAC Deferred Financing Costs (Net of Amortization) Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Deferred Financing Costs (Net of Amortization)'
+where
+	company = 'RAC'
+	and gl_account between '18500' and '18600'
+
+--RAC Intercompany Balances Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Intercompany Balances'
+where
+	company = 'RAC'
+	and gl_account in ('19600', '19700', '19300', '19000', '19200', '19400')
+
+--RAC Fixed Assets, Net Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Fixed Assets, Net'
+where
+	company = 'RAC'
+	and gl_account between '14600' and '16950'
+
+--RAC Other Assets Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Other Assets'
+where
+	company = 'RAC'
+	and gl_account in ('17100', '18700')
+
+--RAC Goodwill, Net Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Goodwill, Net'
+where
+	company = 'RAC'
+	and gl_account between '18000' and '18050'
+
+--RAC Intangible Assets, Net Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Intangible Assets, Net'
+where
+	company = 'RAC'
+	and gl_account between '18100' and '18200'
+
+
+
+--RAC Liability Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Liability'
+where
+	company = 'RAC'
+	and (gl_account between '22000' and '22510'
+	or gl_account in (
+		'20000',
+		'21000',
+		'23000',
+		'23255',
+		'23500',
+		'24100',
+		'28000',
+		'24200',
+		'24300',
+		'23200',
+		'24050',
+		'24000',
+		'27000',
+		'21050',
+		'23151',
+		'23160',
+		'23165',
+		'23260',
+		'23261',
+		'23265',
+		'24150',
+		'24205'
+	))
+
+
+
+--RAC Accounts Payable Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Accounts Payable'
+where
+	company = 'RAC'
+	and gl_account = '20000'
+
+--RAC Accrued Liabilities Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Accrued Liabilities'
+where
+	company = 'RAC'
+	and gl_account in ('21000', '23000', '21050', '23255', '23260', '23261', '23265')
+
+--RAC Accrued Compensation Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Accrued Compensation'
+where
+	company = 'RAC'
+	and gl_account in ('23500', '23151', '23160', '23165')
+
+--RAC Taxes Payable Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Taxes Payable'
+where
+	company = 'RAC'
+	and gl_account between '22000' and '22510'
+
+--RAC Bank Line of Credit Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Bank Line of Credit'
+where
+	company = 'RAC'
+	and gl_account = '24100'
+
+--RAC Other Current Liabilities Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Other Current Liabilities'
+where
+	company = 'RAC'
+	and gl_account in ('24200', '24300', '24205', '28000')
+
+--RAC Capital Leases (Current) Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Capital Leases (Current)'
+where
+	company = 'RAC'
+	and gl_account = '23200'
+
+--RAC Notes Payable Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Notes Payable'
+where
+	company = 'RAC'
+	and gl_account in ('24050', '24150')
+
+--RAC Term Loan (Current) Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Term Loan (Current)'
+where
+	company = 'RAC'
+	and gl_account = '24000'
+
+--RAC Term Loan (Long Term) Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Term Loan (Long Term)'
+where
+	company = 'RAC'
+	and gl_account = '27000'
+
+
+
+--RAC Equity Level 1
+update [myop\jason.walker].gl_account_reporting
+set level_1 = 'Equity'
+where
+	company = 'RAC'
+	and gl_account in ('31100', '31000', '31200')
+
+--RAC Member's Equity Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Member''s Equity'
+where
+	company = 'RAC'
+	and gl_account in ('31100', '31200')
+
+--RAC Retained Earnings Level 2
+update [myop\jason.walker].gl_account_reporting
+set level_2 = 'Retained Earnings'
+where
+	company = 'RAC'
+	and gl_account = '31000'
+
+
+
+
+
+
+
+--Set Report Multipliers to -1
+update [myop\jason.walker].gl_account_reporting
+set report_multiplier = -1
+where
+	level_1 in (
+	'Sales',
+	'Adjustment to Margin',
+	'Other Income / (Expense)'
+	)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+GO
+
+

@@ -1,0 +1,43 @@
+
+select	
+	gl.[Posting Date],
+	gl.[Document No_],
+	CASE gl.[Document Type]
+		WHEN 1 THEN 'Payment'
+		WHEN 2 THEN 'Invoice'
+		WHEN 3 THEN 'Credit'
+		WHEN 4 THEN 'Finance Charge'
+		WHEN 5 THEN 'Reminder'
+		WHEN 6 THEN 'Refund'
+		ELSE 'Unknown'
+	END AS DocumentType,
+	gl.[G_L Account No_],
+	gl.[Global Dimension 1 Code] as Acq_Code,
+	gl.[Global Dimension 2 Code] as Sell_As,
+	gl.[User ID],
+	sum(gl.Amount) as Amount
+from NAVRep.dbo.[Hi Touch$G_L Entry] gl with(nolock)
+	inner join tndcsql02.playground.[myop\jason.walker].gl_account_reporting glr
+		on gl.[G_L Account No_] = glr.gl_account
+		and glr.company = 'HT'
+where
+	gl.[Global Dimension 1 Code] = 'GOS'
+	and gl.[Posting Date] between '2015-04-08' and '2017-03-29'
+	and glr.level_1 = 'Sales'
+group by
+	gl.[Posting Date],
+	gl.[Document No_],
+	CASE gl.[Document Type]
+		WHEN 1 THEN 'Payment'
+		WHEN 2 THEN 'Invoice'
+		WHEN 3 THEN 'Credit'
+		WHEN 4 THEN 'Finance Charge'
+		WHEN 5 THEN 'Reminder'
+		WHEN 6 THEN 'Refund'
+		ELSE 'Unknown'
+	END,
+	gl.[G_L Account No_],
+	gl.[Global Dimension 1 Code],
+	gl.[Global Dimension 2 Code],
+	gl.[User ID]
+	

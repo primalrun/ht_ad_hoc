@@ -1,0 +1,199 @@
+--Use TNDCSQL03
+--There are two data sets
+--Payments stuff
+--Invoice stuff
+
+declare @datestart date = '2017-05-01'
+declare @dateend date = '2017-05-31'
+
+create table #pmt(
+GLCompany varchar(25),
+ChargeMethod varchar(30),
+CustNbr varchar(25),
+CustName varchar(75),
+PaymentDocType varchar(25),
+PaymentDocNbr varchar(25),
+PaymentDate date,
+ExternalDocNbr varchar(50),
+BalAcctNbr varchar(25),
+PaymentEntryNbr int,
+PaymentAmount decimal(20,10))
+
+insert into #pmt
+select
+	'MYOP' as GLCompany,
+	'Manual' as ChargeMethod,
+	cle.[Customer No_],
+	c.Name as CustomerName,
+	case when cle.[Document Type] in (0, 1) then 'Payment'
+		when cle.[Document Type] = 6 then 'Refund'
+		else 'Unknown'
+		end as DocumentType,
+	cle.[Document No_],
+	cle.[Document Date],	
+	cle.[External Document No_],
+	cle.[Bal_ Account No_],
+	cle.[Entry No_] as PaymentEntryNbr,	
+	dcle.Amount	
+from NAVRep.dbo.[MYOP$Cust_ Ledger Entry] cle with(nolock)
+	inner join NAVRep.dbo.[MYOP$Detailed Cust_ Ledg_ Entry] dcle with(nolock)
+		on cle.[Entry No_] = dcle.[Cust_ Ledger Entry No_]
+	left join NAVRep.dbo.MYOP$Customer c with(nolock)
+		on cle.[Customer No_] = c.No_
+where
+	cle.[Document Date] between @datestart and @dateend
+	and left(cle.[External Document No_], 2) in ('AE', 'DC', 'VM')
+	and cle.[Document Type] in (0, 1, 6)
+	and dcle.[Entry Type] = 1
+
+
+insert into #pmt
+select
+	'MYOP' as GLCompany,
+	'Auto' as ChargeMethod,
+	cle.[Customer No_],
+	c.Name as CustomerName,
+	case when cle.[Document Type] in (0, 1) then 'Payment'
+		when cle.[Document Type] = 6 then 'Refund'
+		else 'Unknown'
+		end as DocumentType,
+	cle.[Document No_],
+	cle.[Document Date],	
+	cle.[External Document No_],
+	cle.[Bal_ Account No_],
+	cle.[Entry No_] as PaymentEntryNbr,	
+	dcle.Amount	
+from NAVRep.dbo.[MYOP$Cust_ Ledger Entry] cle with(nolock)
+	inner join NAVRep.dbo.[MYOP$Detailed Cust_ Ledg_ Entry] dcle with(nolock)
+		on cle.[Entry No_] = dcle.[Cust_ Ledger Entry No_]
+	left join NAVRep.dbo.MYOP$Customer c with(nolock)
+		on cle.[Customer No_] = c.No_
+	left join #pmt p
+		on cle.[Entry No_] = p.PaymentEntryNbr
+where
+	cle.[Document Date] between @datestart and @dateend
+	and left(cle.[Document No_], 2) in ('CM', 'CP', 'IN', 'OE', 'PA', 'WO')
+	and cle.[Document Type] in (0, 1, 6)
+	and dcle.[Entry Type] = 1
+	and p.PaymentEntryNbr is null
+
+
+insert into #pmt
+select
+	'HT' as GLCompany,
+	'Auto' as ChargeMethod,
+	cle.[Customer No_],
+	c.Name as CustomerName,
+	case when cle.[Document Type] in (0, 1) then 'Payment'
+		when cle.[Document Type] = 6 then 'Refund'
+		else 'Unknown'
+		end as DocumentType,
+	cle.[Document No_],
+	cle.[Document Date],	
+	cle.[External Document No_],
+	cle.[Bal_ Account No_],
+	cle.[Entry No_] as PaymentEntryNbr,	
+	dcle.Amount	
+from NAVRep.dbo.[Hi Touch$Cust_ Ledger Entry] cle with(nolock)
+	inner join NAVRep.dbo.[Hi Touch$Detailed Cust_ Ledg_ Entry] dcle with(nolock)
+		on cle.[Entry No_] = dcle.[Cust_ Ledger Entry No_]
+	left join NAVRep.dbo.[Hi Touch$Customer] c with(nolock)
+		on cle.[Customer No_] = c.No_
+where
+	cle.[Posting Date] between @datestart and @dateend
+	and cle.[Bal_ Account No_] = 'JPM5'
+	and left(cle.[Document No_],2) = 'CC'
+	and cle.[Document Type] in (0, 1, 6)
+	and dcle.[Entry Type] = 1
+
+
+
+
+
+create table #inv (
+GLCompany varchar(20),
+InvoiceEntryNbr int,
+PaymentEntryNbr int,
+InvoiceNbr varchar(25),
+InvoiceDate date,
+InvoiceAmount decimal(20,10),
+BusinessUnit varchar(25))
+
+insert into #inv
+select
+	q1.GLCompany,	
+	q1.InvoiceEntryNbr,
+	q1.PaymentEntryNbr,
+	q1.InvoiceNbr,
+	q1.InvoiceDate,
+	q1.InvoiceAmount,
+	sa1.business_unit as BusinessUnit
+from (
+select
+	'HT' as GLCompany,
+	cle.[Entry No_] as InvoiceEntryNbr,
+	p.PaymentEntryNbr,
+	cle.[Document No_] as InvoiceNbr,
+	cle.[Document Date] as InvoiceDate,
+	cle.[Sales (LCY)] as InvoiceAmount
+from NAVRep.dbo.[Hi Touch$Cust_ Ledger Entry] cle with(nolock)
+	inner join #pmt p
+		on cle.[Closed by Entry No_] = p.PaymentEntryNbr
+where
+	p.GLCompany = 'HT'
+
+union all
+
+select
+	'MYOP' as GLCompany,
+	cle.[Entry No_] as InvoiceEntryNbr,
+	p.PaymentEntryNbr,
+	cle.[Document No_] as InvoiceNbr,
+	cle.[Document Date] as InvoiceDate,
+	cle.[Sales (LCY)] as InvoiceAmount
+from NAVRep.dbo.[MYOP$Cust_ Ledger Entry] cle with(nolock)
+	inner join #pmt p
+		on cle.[Closed by Entry No_] = p.PaymentEntryNbr
+where
+	p.GLCompany = 'MYOP'
+) q1
+	left join (
+	select
+		sa.inv_date,
+		sa.invoice,
+		max(sa.business_unit) as business_unit
+	from HTDW.Playground.[myop\jason.walker].sales_analysis_agg_date_invoice sa
+	group by
+		sa.inv_date,
+		sa.invoice) sa1
+			on q1.InvoiceDate = sa1.inv_date
+			and q1.InvoiceNbr = sa1.invoice
+
+--Invoice Data
+
+select
+	i.GLCompany,
+	p.ChargeMethod,
+	p.CustNbr,
+	p.CustName,	
+	i.BusinessUnit,
+	i.InvoiceNbr,
+	i.InvoiceDate,
+	i.InvoiceAmount,
+	p.PaymentDocNbr,
+	p.PaymentDate,	
+	p.PaymentAmount
+from #inv i
+	inner join #pmt p
+		on i.PaymentEntryNbr = p.PaymentEntryNbr
+
+--Payment Data
+
+--select
+--	*
+--from #pmt
+
+
+
+drop table #pmt
+drop table #inv

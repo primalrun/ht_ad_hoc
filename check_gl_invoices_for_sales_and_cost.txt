@@ -1,0 +1,19 @@
+select
+	gl.[Entry No_],
+	gl.[G_L Account No_] as GLAcctNbr,
+	gla.Name as GLAccount,
+	glr.level_1 as ReportCategory1,
+	glr.level_2 as ReportCategory2,
+	gl.[Document No_],
+	gl.[Posting Date],
+	gl.[Document Date],
+	gl.Description as GLLineDescription,
+	gl.Amount
+from NAVRep.dbo.[Hi Touch$G_L Entry] gl with(nolock)
+	inner join NAVRep.dbo.[Hi Touch$G_L Account] gla
+		on gl.[G_L Account No_] = gla.No_
+	left outer join htdw.playground.[myop\jason.walker].gl_account_reporting glr
+		on gl.[G_L Account No_] = glr.gl_account
+		and glr.company = 'HT'
+where
+	gl.[Document No_] = 'IN4334880'

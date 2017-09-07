@@ -1,0 +1,22 @@
+select
+	ih.FullInvoiceNbr,
+	ih.InvDate,
+	ih.SellToCustNbr,
+	c.CustName,
+	sum(id.InvoicedQty * id.UnitSell) as Sales,
+	sum(id.InvoicedQty * id.UnloadedPOSCost) as Cost
+from htdw.dbo.tInvoiceHeader ih with(nolock)
+	inner join htdw.dbo.tInvoiceDetail id with(nolock)
+		on ih.DWInvoiceID = id.DWInvoiceID
+	left join htdw.dbo.tCustomerMaster cm
+		on ih.CustomerMasterID = cm.CustomerMasterID
+	inner join htdw.dbo.tCustomer c
+		 on cm.CustID = c.CustID
+where
+	ih.SellToCustNbr = '4603608'
+	and ih.InvDate between '2015-01-01' and '2016-12-31'
+group by
+	ih.FullInvoiceNbr,
+	ih.InvDate,
+	ih.SellToCustNbr,
+	c.CustName

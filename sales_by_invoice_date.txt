@@ -1,0 +1,33 @@
+declare @datestart date = '2017-03-01'
+declare @dateend date = '2017-03-31'
+
+begin try
+	drop table Playground.[myop\jason.walker].jwtemp
+end try
+begin catch
+end catch
+
+select
+	sa.inv_date as InvoiceDate,
+	sa.business_unit as BusinessUnit,
+	sa.business_unit_orig as BusinessUnitOrig,
+	sa.product_class as ProductClass,
+	sa.company_name as CompanyName,
+	sa.cust_nbr as CustNbr,
+	sa.cust_name as CustName,
+	sa.system_name as SystemName,
+	sum(sa.sales_no_frt) as Sales,
+	sum(sa.unloaded_cost) as CostUnloaded
+into Playground.[myop\jason.walker].jwtemp
+from Playground.[myop\jason.walker].sales_analysis_agg_date sa
+where
+	sa.inv_date between @datestart and @dateend
+group by
+	sa.inv_date,
+	sa.business_unit,
+	sa.business_unit_orig,
+	sa.product_class,
+	sa.company_name,
+	sa.cust_nbr,
+	sa.cust_name,
+	sa.system_name

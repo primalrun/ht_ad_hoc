@@ -1,0 +1,215 @@
+--Use TNDCSQL02
+--Results in Playground.[myop\jason.walker].jwtemp
+
+--Payments
+create table #payments (
+	cust_ledger_entry_nbr int,	
+	cust_nbr varchar(25),
+	payment_doc_nbr varchar(25),
+	entry_type varchar(35),
+	payment_post_date date,	
+	payment_description varchar(75),
+	payment_entry_nbr int,	
+	paymount_amount decimal(12,2)
+)
+
+insert into #payments (cust_ledger_entry_nbr, cust_nbr, payment_doc_nbr, entry_type, payment_post_date, paymount_amount)
+select
+	dcle.[Cust_ Ledger Entry No_],	
+	dcle.[Customer No_] as CustomerNumber,
+	dcle.[Document No_] as PaymentDocumentNumber,
+	case when dcle.[Entry Type] = 1 then 'Initial Entry'
+		when dcle.[Entry Type] = 2 then 'Application'
+		when dcle.[Entry Type] = 7 then 'Payment Discount'
+		when dcle.[Entry Type] = 12 then 'Payment Tolerance'
+		when dcle.[Entry Type] = 13 then 'Payment Discount Tolerance'
+		else 'Other'
+		end as EntryType,
+	dcle.[Posting Date] as PaymentPostDate,		
+	sum(dcle.Amount) as PaymentAmount
+from NAVRep.NAVRep.dbo.[Rentacrate$Detailed Cust_ Ledg_ Entry] dcle with(nolock)
+where
+	dcle.[Document Type] = 1	
+group by
+	dcle.[Cust_ Ledger Entry No_],	
+	dcle.[Customer No_],
+	dcle.[Document No_],
+	case when dcle.[Entry Type] = 1 then 'Initial Entry'
+		when dcle.[Entry Type] = 2 then 'Application'
+		when dcle.[Entry Type] = 7 then 'Payment Discount'
+		when dcle.[Entry Type] = 12 then 'Payment Tolerance'
+		when dcle.[Entry Type] = 13 then 'Payment Discount Tolerance'
+		else 'Other'
+		end,
+	dcle.[Posting Date]	
+having
+	abs(sum(dcle.Amount))>0
+
+
+--Payment Entry Number, Line Description from Customer Ledger Entry
+create table #payment_entry_number(
+	payment_doc_nbr varchar(25),
+	cust_nbr varchar(25),
+	entry_nbr int,
+	line_description varchar(75)
+)
+
+insert into #payment_entry_number
+select
+	p1.payment_doc_nbr,
+	p1.cust_nbr,
+	cle.[Entry No_],
+	cle.Description
+from (
+select distinct
+	p.payment_doc_nbr,
+	p.cust_nbr
+from #payments p
+) p1
+	inner join NAVRep.NAVRep.dbo.[Rentacrate$Cust_ Ledger Entry] cle with(nolock)
+		on p1.payment_doc_nbr = cle.[Document No_]
+		and p1.cust_nbr = cle.[Customer No_]
+
+
+--Add payment entry number from Customer Ledger Entry
+update p
+set
+	p.payment_entry_nbr = pe.entry_nbr,
+	p.payment_description = pe.line_description
+from #payments p
+	inner join #payment_entry_number pe
+		on p.payment_doc_nbr = pe.payment_doc_nbr
+		and p.cust_nbr = pe.cust_nbr
+
+
+--Invoice
+create table #invoice (
+	cust_nbr varchar(25),
+	cust_ledger_entry_nbr int,
+	invoice_doc_nbr varchar(25),
+	invoice_post_date date,
+	invoice_doc_date date,
+	entry_nbr int,
+	closing_entry_number int,
+	invoice_amount decimal(12,2)
+)
+
+insert into #invoice (cust_nbr, cust_ledger_entry_nbr, invoice_doc_nbr, invoice_post_date, invoice_amount)
+select
+	dcle.[Customer No_],
+	dcle.[Cust_ Ledger Entry No_],
+	dcle.[Document No_],
+	dcle.[Posting Date],
+	sum(dcle.Amount) as Amount
+from NAVRep.NAVRep.dbo.[Rentacrate$Detailed Cust_ Ledg_ Entry] dcle with(nolock)
+	inner join #payments p
+		on dcle.[Cust_ Ledger Entry No_] = p.cust_ledger_entry_nbr
+where
+	dcle.[Document Type] = 2
+group by
+	dcle.[Customer No_],
+	dcle.[Cust_ Ledger Entry No_],
+	dcle.[Document No_],
+	dcle.[Posting Date]
+
+
+--Add invoice document date, entry number, closing entry number
+update i
+set
+	i.invoice_doc_date = cle.[Document Date],
+	i.entry_nbr = cle.[Entry No_],
+	i.closing_entry_number = cle.[Closed by Entry No_]
+from #invoice i
+	inner join NAVRep.NAVRep.dbo.[Rentacrate$Cust_ Ledger Entry] cle with(nolock)
+		on i.invoice_doc_nbr = cle.[Document No_]
+		and i.cust_nbr = cle.[Customer No_]
+
+
+create table #payment_result(
+	SellAs varchar(10),
+	CustomerNumber varchar(25),
+	CustomerName varchar(300),
+	PaymentDocNumber varchar(75),
+	EntryType varchar(35),
+	PaymentDescription varchar(500),
+	PaymentPostDate date,
+	PaymentAmount decimal(12,2),
+	InvoiceDocNumber varchar(5000),
+	InvoiceDocDate varchar(5000),
+	InvoiceAmount varchar(5000)
+)
+
+insert into #payment_result(CustomerNumber, CustomerName, PaymentDocNumber, EntryType, PaymentDescription, PaymentPostDate, PaymentAmount, InvoiceDocNumber, InvoiceDocDate, InvoiceAmount)
+select
+	p.cust_nbr as CustomerNumber,
+	c.Name as CustomerName,
+	p.payment_doc_nbr as PaymentDocNumber,
+	p.entry_type as EntryType,
+	p.payment_description as PaymentDescription,
+	p.payment_post_date as PaymentPostDate,
+	p.paymount_amount as PaymentAmount,
+	stuff((select ','+i.invoice_doc_nbr from #invoice i where p.payment_entry_nbr = i.closing_entry_number for xml path('')),1,1,'') as InvoiceDocNumber,
+	stuff((select ','+cast(i.invoice_doc_date as varchar(10)) from #invoice i where p.payment_entry_nbr = i.closing_entry_number for xml path('')),1,1,'') as InvoiceDocDate,
+	stuff((select '|'+cast(i.invoice_amount as varchar(25)) from #invoice i where p.payment_entry_nbr = i.closing_entry_number for xml path('')),1,1,'') as InvoiceAmount
+from #payments p
+	left outer join NAVRep.NAVRep.dbo.Rentacrate$Customer c with(nolock)
+		on p.cust_nbr = c.No_
+
+--update payment_result for shred customers
+update pr
+set
+	pr.SellAs = 'Shred'
+from #payment_result pr
+where
+	left(pr.InvoiceDocNumber,2)='SS'
+
+--update payment_result for rac customers
+update pr
+set
+	pr.SellAs = 'RAC'
+from #payment_result pr
+where
+	left(pr.InvoiceDocNumber,3)='INV'
+
+
+--update payment result for shred customers with no rac invoices
+update pr
+set
+	pr.SellAs = 'Shred'
+from #payment_result pr
+	inner join (
+	select distinct
+		pr1.CustomerNumber
+	from (
+	select distinct
+		pr.CustomerNumber	
+	from #payment_result pr
+	where
+		pr.SellAs = 'Shred'
+	) pr1
+		left outer join #payment_result pr
+			on pr1.CustomerNumber = pr.CustomerNumber
+	where
+		pr.SellAs is null
+		and not exists (select 1 from #payment_result pr2 where pr2.CustomerNumber = pr1.CustomerNumber and pr2.SellAs = 'RAC')
+	) q1
+		on pr.CustomerNumber = q1.CustomerNumber	
+
+
+--update payment_result to rac for remaining
+update pr
+set
+	pr.SellAs = 'RAC'
+from #payment_result pr
+where
+	pr.SellAs is null
+
+
+drop table Playground.[myop\jason.walker].jwtemp
+select * into Playground.[myop\jason.walker].jwtemp from #payment_result order by 1, 3, 2, 4
+
+
+drop table #payments
+drop table #invoice
+drop table #payment_entry_number
+drop table #payment_result

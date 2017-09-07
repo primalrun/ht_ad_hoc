@@ -1,0 +1,341 @@
+declare @postdate date = '2017-06-01'
+declare @docdate date = dateadd("D",-1,@postdate)
+
+--select @postdate as PostDate, @docdate as DocDate
+
+--Other Operating Expense and Intercompany gl accounts
+create table #gl_acct (
+	company varchar(10),
+	gl_account varchar(10))
+
+--Other Operating Expense
+insert into #gl_acct
+values
+('HT', '41150'),
+('HT', '41240'),
+('HT', '41310'),
+('HT', '41320'),
+('HT', '41400'),
+('HT', '41450'),
+('HT', '41500'),
+('HT', '41505'),
+('HT', '41510'),
+('HT', '41650'),
+('HT', '41700'),
+('HT', '41930'),
+('HT', '45670'),
+('HT', '51100'),
+('HT', '51150'),
+('HT', '51300'),
+('HT', '51320'),
+('HT', '51350'),
+('HT', '51400'),
+('HT', '51450'),
+('HT', '51500'),
+('HT', '51600'),
+('HT', '51700'),
+('HT', '51750'),
+('HT', '51800'),
+('HT', '51930'),
+('HT', '52150'),
+('HT', '52200'),
+('HT', '53500'),
+('HT', '53570'),
+('HT', '53580'),
+('HT', '53600'),
+('HT', '54000'),
+('HT', '54100'),
+('HT', '54110'),
+('HT', '54120'),
+('HT', '54130'),
+('HT', '54150'),
+('HT', '54200'),
+('HT', '55150'),
+('HT', '55200'),
+('HT', '55250'),
+('HT', '55255'),
+('HT', '55300'),
+('HT', '55325'),
+('HT', '55350'),
+('HT', '55400'),
+('HT', '55450'),
+('HT', '55500'),
+('HT', '55550'),
+('HT', '55600'),
+('HT', '55650'),
+('HT', '55660'),
+('HT', '55670'),
+('HT', '55700'),
+('HT', '55710'),
+('HT', '55720'),
+('HT', '55730'),
+('HT', '55740'),
+('HT', '55745'),
+('HT', '55750'),
+('HT', '55800'),
+('HT', '55820'),
+('HT', '55850'),
+('HT', '55860'),
+('HT', '55870'),
+('HT', '56000'),
+('MYOP', '55860'),
+('MYOP', '60200'),
+('MYOP', '60820'),
+('MYOP', '60825'),
+('MYOP', '61000'),
+('MYOP', '61100'),
+('MYOP', '61200'),
+('MYOP', '61300'),
+('MYOP', '62000'),
+('MYOP', '62100'),
+('MYOP', '62200'),
+('MYOP', '62300'),
+('MYOP', '62400'),
+('MYOP', '63000'),
+('MYOP', '63100'),
+('MYOP', '64000'),
+('MYOP', '64050'),
+('MYOP', '64100'),
+('MYOP', '64200'),
+('MYOP', '64300'),
+('MYOP', '64400'),
+('MYOP', '64600'),
+('MYOP', '64700'),
+('MYOP', '64800'),
+('MYOP', '64900'),
+('MYOP', '65000'),
+('MYOP', '65100'),
+('MYOP', '65200'),
+('MYOP', '65300'),
+('MYOP', '65400'),
+('MYOP', '65500'),
+('MYOP', '65600'),
+('MYOP', '65700'),
+('MYOP', '65800'),
+('MYOP', '66000'),
+('MYOP', '66100'),
+('MYOP', '66200'),
+('MYOP', '67000'),
+('MYOP', '67100'),
+('MYOP', '67200'),
+('MYOP', '67300'),
+('MYOP', '68100'),
+('MYOP', '68200'),
+('MYOP', '68300'),
+('MYOP', '68500'),
+('RAC', '56000'),
+('RAC', '56100'),
+('RAC', '56200'),
+('RAC', '56300'),
+('RAC', '56400'),
+('RAC', '56450'),
+('RAC', '56600'),
+('RAC', '56700'),
+('RAC', '56750'),
+('RAC', '56800'),
+('RAC', '56850'),
+('RAC', '56900'),
+('RAC', '56950'),
+('RAC', '57100'),
+('RAC', '57150'),
+('RAC', '57200'),
+('RAC', '57300'),
+('RAC', '57400'),
+('RAC', '57500'),
+('RAC', '57600'),
+('RAC', '57700'),
+('RAC', '57900'),
+('RAC', '58000'),
+('RAC', '58100'),
+('RAC', '58200'),
+('RAC', '58300'),
+('RAC', '58400'),
+('RAC', '58600'),
+('RAC', '58700'),
+('RAC', '58800'),
+('RAC', '58900'),
+('RAC', '59000'),
+('RAC', '59100'),
+('RAC', '59500'),
+('RAC', '60200'),
+('RAC', '60800'),
+('RAC', '60810'),
+('RAC', '60820'),
+('RAC', '60825'),
+('RAC', '61300'),
+('RAC', '62000'),
+('RAC', '62100'),
+('RAC', '62200'),
+('RAC', '62300'),
+('RAC', '62600'),
+('RAC', '63000'),
+('RAC', '63100'),
+('RAC', '63150'),
+('RAC', '63200'),
+('RAC', '64000'),
+('RAC', '64600'),
+('RAC', '64700'),
+('RAC', '65000'),
+('RAC', '65100'),
+('RAC', '65200'),
+('RAC', '65250'),
+('RAC', '65300'),
+('RAC', '65350'),
+('RAC', '65400'),
+('RAC', '65500'),
+('RAC', '65600'),
+('RAC', '65700'),
+('RAC', '67000'),
+('RAC', '67100'),
+('RAC', '67200'),
+('RAC', '67300'),
+('RAC', '67500'),
+('RAC', '67600'),
+('RAC', '67700'),
+('RAC', '68200'),
+('RAC', '68300')
+
+insert into #gl_acct
+values
+('HT', '17100'),
+('HT', '23050'),
+('MYOP', '19100'),
+('MYOP', '19200'),
+('RAC', '19000'),
+('RAC', '19200')
+
+--HT
+select
+	'HT' as GL_Company,
+	gl.[G_L Account No_] as GL_Acct,
+	gl.[Document No_] as Doc_Nbr,
+	gl.[Document Date],
+	gl.[Posting Date],
+	gl.[Location Code] as [Location],
+	gl.[Shortcut Dimension 5 Code] as Sell_As,
+	gl.[Global Dimension 2 Code] as Bus_Unit,
+	gl.[Shortcut Dimension 4 Code] as Dept,
+	gl.[Global Dimension 1 Code] as Acq_Code,
+	gl.Description as [Description],
+	gl.[Source No_] as Vendor_Nbr,
+	v.Name as Vendor_Name,
+	gl.[External Document No_] as External_Doc_Nbr,
+	sum(gl.Amount) as Amount
+from navrep.dbo.[Hi Touch$G_L Entry] gl with(nolock)
+	inner join #gl_acct g
+		on gl.[G_L Account No_] = g.gl_account
+		and g.company = 'HT'
+	left join NAVRep.dbo.[Hi Touch$Vendor] v
+		on gl.[Source No_] = v.No_
+where
+	gl.[Posting Date] >= @postdate
+	and gl.[Document Date] <= @docdate
+	and (left(gl.[Document No_], 3) = 'PPI'
+	or left(gl.[Document No_], 4) = 'PPCR')
+group by
+	gl.[G_L Account No_],
+	gl.[Document No_],
+	gl.[Document Date],
+	gl.[Posting Date],
+	gl.[Location Code],
+	gl.[Shortcut Dimension 5 Code],
+	gl.[Global Dimension 2 Code],
+	gl.[Shortcut Dimension 4 Code],
+	gl.[Global Dimension 1 Code],
+	gl.Description,
+	gl.[Source No_],
+	v.Name,
+	gl.[External Document No_]
+
+union all
+
+--MYOP
+select
+	'MYOP' as GL_Company,
+	gl.[G_L Account No_] as GL_Acct,
+	gl.[Document No_] as Doc_Nbr,
+	gl.[Document Date],
+	gl.[Posting Date],
+	gl.[Location Code] as [Location],
+	gl.[Shortcut Dimension 5 Code] as Sell_As,
+	gl.[Global Dimension 2 Code] as Bus_Unit,
+	gl.[Shortcut Dimension 4 Code] as Dept,
+	gl.[Global Dimension 1 Code] as Acq_Code,
+	gl.Description as [Description],
+	gl.[Source No_] as Vendor_Nbr,
+	v.Name as Vendor_Name,
+	gl.[External Document No_] as External_Doc_Nbr,
+	sum(gl.Amount) as Amount
+from navrep.dbo.[MYOP$G_L Entry] gl with(nolock)
+	inner join #gl_acct g
+		on gl.[G_L Account No_] = g.gl_account
+		and g.company = 'MYOP'
+	left join NAVRep.dbo.[MYOP$Vendor] v
+		on gl.[Source No_] = v.No_
+where
+	gl.[Posting Date] >= @postdate
+	and gl.[Document Date] <= @docdate
+	and (left(gl.[Document No_], 3) = 'PPI'
+	or left(gl.[Document No_], 4) = 'PPCR')
+group by
+	gl.[G_L Account No_],
+	gl.[Document No_],
+	gl.[Document Date],
+	gl.[Posting Date],
+	gl.[Location Code],
+	gl.[Shortcut Dimension 5 Code],
+	gl.[Global Dimension 2 Code],
+	gl.[Shortcut Dimension 4 Code],
+	gl.[Global Dimension 1 Code],
+	gl.Description,
+	gl.[Source No_],
+	v.Name,
+	gl.[External Document No_]
+
+union all
+
+--RAC
+select
+	'RAC' as GL_Company,
+	gl.[G_L Account No_] collate SQL_Latin1_General_CP1_CI_AS as GL_Acct,
+	gl.[Document No_] collate SQL_Latin1_General_CP1_CI_AS as Doc_Nbr,
+	gl.[Document Date],
+	gl.[Posting Date],
+	gl.[Location Code] collate SQL_Latin1_General_CP1_CI_AS as [Location],
+	gl.[Shortcut Dimension 5 Code] collate SQL_Latin1_General_CP1_CI_AS as Sell_As,
+	gl.[Global Dimension 2 Code] collate SQL_Latin1_General_CP1_CI_AS as Bus_Unit,
+	gl.[Shortcut Dimension 4 Code] collate SQL_Latin1_General_CP1_CI_AS as Dept,
+	gl.[Global Dimension 1 Code] collate SQL_Latin1_General_CP1_CI_AS as Acq_Code,
+	gl.Description collate SQL_Latin1_General_CP1_CI_AS as [Description],
+	gl.[Source No_] collate SQL_Latin1_General_CP1_CI_AS as Vendor_Nbr,
+	v.Name as Vendor_Name,
+	gl.[External Document No_] collate SQL_Latin1_General_CP1_CI_AS as External_Doc_Nbr,
+	sum(gl.Amount) as Amount
+from navrep.dbo.[Rentacrate$G_L Entry] gl with(nolock)
+	inner join #gl_acct g
+		on gl.[G_L Account No_] collate SQL_Latin1_General_CP1_CI_AS = g.gl_account
+		and g.company = 'RAC'
+	left join NAVRep.dbo.[Rentacrate$Vendor] v
+		on gl.[Source No_] collate SQL_Latin1_General_CP1_CI_AS = v.No_
+where
+	gl.[Posting Date] >= @postdate
+	and gl.[Document Date] <= @docdate
+	and (left(gl.[Document No_], 4) = 'PINV'
+	or left(gl.[Document No_], 2) = 'CM')
+group by
+	gl.[G_L Account No_],
+	gl.[Document No_],
+	gl.[Document Date],
+	gl.[Posting Date],
+	gl.[Location Code],
+	gl.[Shortcut Dimension 5 Code],
+	gl.[Global Dimension 2 Code],
+	gl.[Shortcut Dimension 4 Code],
+	gl.[Global Dimension 1 Code],
+	gl.Description,
+	gl.[Source No_],
+	v.Name,
+	gl.[External Document No_]
+
+
+drop table #gl_acct

@@ -1,0 +1,32 @@
+select
+	dcle.[Customer No_] as CustNbr,
+	c.Name as CustName,
+	dcle.[Entry No_] as PaymentEntryNbr,
+	dcle.[Cust_ Ledger Entry No_] as InvoiceEntryNbr,	
+	dcle.[Posting Date] as PaymentPostDate,
+	dcle.[Document No_] as PaymentDocNbr,
+	inv.[Document No_] as InvoiceDocNbr,
+	inv.[Document Date] as InvoiceDocDate,
+	dcle.[Transaction No_],
+	dcle.[Source Code],
+	dcle.[Journal Batch Name],	
+	dcle.Amount
+from NAVRep.dbo.[Rentacrate$Detailed Cust_ Ledg_ Entry] dcle with(nolock)
+
+	left outer join (
+		select
+			cle.[Entry No_],
+			cle.[Document No_],
+			cle.[Document Date]
+		from NAVRep.dbo.[Rentacrate$Cust_ Ledger Entry] cle with(nolock)
+		where
+			cle.[Customer No_] = 'C000132'
+			and cle.[Document Type] = 2) inv
+				
+				on dcle.[Cust_ Ledger Entry No_] = inv.[Entry No_]
+
+	left outer join NAVRep.dbo.Rentacrate$Customer c with(nolock)
+		on dcle.[Customer No_] = c.No_
+where
+	dcle.[Customer No_] = 'C000132'
+	and dcle.[Document Type] = 1

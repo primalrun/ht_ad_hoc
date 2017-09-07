@@ -1,0 +1,27 @@
+--Summary
+--select
+--   sct.Period,
+--   sct.BusinessUnit,
+--   count(sct.fullinvoicenbr) as InvoiceCount
+--from Playground.[myop\jason.walker].sales_cost_trend sct
+--where
+--   sct.DocTypeDesc not in ('Cost Adjustment', 'Price Adjustment')
+--   and sct.BusinessUnit in ('MYOI', 'Office Products')
+--   and sct.VendorName in ('MyOfficeProducts', 'MYOPWarehouse', 'STOCK', 'Vibe Wholesaler (MYOP)', 'Warehouse-MYOP')
+--group by
+--   sct.Period,
+--   sct.BusinessUnit
+
+
+--Detail
+
+drop table Playground.[myop\jason.walker].jwtemp
+
+select
+   *
+into Playground.[myop\jason.walker].jwtemp
+from Playground.[myop\jason.walker].sales_cost_trend sct
+where
+   sct.DocTypeDesc not in ('Cost Adjustment', 'Price Adjustment')
+   and sct.BusinessUnit in ('MYOI', 'Office Products')
+   and sct.VendorName in ('MyOfficeProducts', 'MYOPWarehouse', 'STOCK', 'Vibe Wholesaler (MYOP)', 'Warehouse-MYOP')

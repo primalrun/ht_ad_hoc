@@ -1,0 +1,60 @@
+declare @datestart date = '2017-06-05'
+declare @dateend date = '2017-07-30'
+
+select
+	'HT' as GLCompany,
+	dvle.[Vendor No_] as VendorNbr,
+	v.Name as VendorName,
+	case when dvle.[Document Type] = 1 then 'Payment'
+		when dvle.[Document Type] = 0 then 'Blank'
+		else 'Unknown'
+		end as DocumentType,
+	dvle.[Document No_] as DocNbr,
+	dvle.[Posting Date] as PostDate,	
+	sum(dvle.Amount) as Amount
+from NAVRep.dbo.[Hi Touch$Detailed Vendor Ledg_ Entry] dvle with(nolock)	
+	left outer join NAVRep.dbo.[Hi Touch$Vendor] v with(nolock)
+		on dvle.[Vendor No_] = v.No_
+where
+	dvle.[Posting Date] between @datestart and @dateend
+	and dvle.[Document Type] in (0, 1)
+group by
+	dvle.[Vendor No_],
+	v.Name,
+	case when dvle.[Document Type] = 1 then 'Payment'
+		when dvle.[Document Type] = 0 then 'Blank'
+		else 'Unknown'
+		end,
+	dvle.[Document No_],
+	dvle.[Posting Date]
+	
+
+union all
+
+select
+	'MYOP' as GLCompany,
+	dvle.[Vendor No_] as VendorNbr,
+	v.Name as VendorName,
+	case when dvle.[Document Type] = 1 then 'Payment'
+		when dvle.[Document Type] = 0 then 'Blank'
+		else 'Unknown'
+		end as DocumentType,
+	dvle.[Document No_] as DocNbr,
+	dvle.[Posting Date] as PostDate,	
+	sum(dvle.Amount) as Amount
+from NAVRep.dbo.[MYOP$Detailed Vendor Ledg_ Entry] dvle with(nolock)	
+	left outer join NAVRep.dbo.[MYOP$Vendor] v with(nolock)
+		on dvle.[Vendor No_] = v.No_
+where
+	dvle.[Posting Date] between @datestart and @dateend
+	and dvle.[Document Type] in (0, 1)
+group by
+	dvle.[Vendor No_],
+	v.Name,
+	case when dvle.[Document Type] = 1 then 'Payment'
+		when dvle.[Document Type] = 0 then 'Blank'
+		else 'Unknown'
+		end,
+	dvle.[Document No_],
+	dvle.[Posting Date]
+

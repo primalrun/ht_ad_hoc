@@ -1,0 +1,16 @@
+select
+	c.CustNbr,
+	c.CustName,
+	ih.FullInvoiceNbr,
+	ih.InvDate,
+	ih.SubtotalAmt,
+	ih.TaxAmt,
+	ih.TotalWOTax,
+	ih.TotalWTax	
+from htdw.dbo.tCustomer c with(nolock)
+	inner join htdw.dbo.tInvoiceHeader ih with(nolock)
+		on c.CustomerMasterID = ih.CustomerMasterID
+where
+	c.CustNbr in ('32000', '31994')
+	and c.isCurrent = 1
+	and abs(ih.TaxAmt) > 0

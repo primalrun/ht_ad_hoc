@@ -1,0 +1,46 @@
+--Use TNDCSQL02
+
+begin try
+	drop table Playground.[myop\jason.walker].jwtemp
+end try
+begin catch
+end catch
+
+
+create table #cust_dw(
+	cust_nbr varchar(25),
+	customer_master_id int,
+	cust_name varchar(75))
+
+insert into #cust_dw
+select
+	mc.cust_nbr,
+	c.CustomerMasterID,
+	c.CustName
+from Playground.[myop\jason.walker].myop_cust_nbr mc
+	inner join htdw.dbo.tCustomer c with(nolock)
+		on mc.cust_nbr = c.CustNbr
+		and c.isCurrent = 1
+
+select distinct
+	c.[AR CUST Customer ID],	
+	c.[AR CUST Name],	
+	st.[AR SHIP ID],
+	case when st.Inactive = 1 then 'Yes' else 'No' end as ShipToInactive,
+	st.[AR SHIP City],
+	st.[AR SHIP Name],
+	st.[AR SHIP State],
+	st.[AR SHIP Postal],	
+	st.TaxGroupID,
+	syt.[SYS TAX Percent]
+into Playground.[myop\jason.walker].jwtemp
+from VBO_REP.VBO_REP.dbo.[AR Ship To] st with(nolock)
+	INNER JOIN VBO_REP.VBO_REP.dbo.[AR Customer] c with(nolock)
+		on st.[AR SHIP Customer ID] = c.[AR CUST Customer ID]
+	left outer join VBO_REP.VBO_REP.dbo.[SYS Tax] syt with(nolock)
+		on st.TaxGroupID = syt.[SYS TAX ID]
+	inner join #cust_dw cdw
+		on c.[AR CUST Name] = cdw.cust_name
+
+
+drop table #cust_dw

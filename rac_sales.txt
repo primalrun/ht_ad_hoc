@@ -1,0 +1,30 @@
+declare @datestart date = '2014-01-01'
+declare @dateend date = '2017-05-31'
+
+
+select
+	year(gl.[Posting Date]) as Post_Year,
+	month(gl.[Posting Date]) as Post_Month,
+	isnull(gl.[Source No_], 'Unknown') as Cust_Nbr,
+	isnull(c.Name, 'Unknown') as Cust_Name,
+	isnull(c.County, 'Unknown') as [State],
+	gl.[Document No_] as Doc_Nbr,
+	gl.[Shortcut Dimension 5 Code] as Sell_As,
+	-sum(gl.Amount) as Revenue
+from NAVRep.dbo.[Rentacrate$G_L Entry] gl with(nolock)
+	inner join htdw.playground.[myop\jason.walker].gl_account_reporting gr
+		on gl.[G_L Account No_] collate SQL_Latin1_General_CP1_CI_AS = gr.gl_account
+		and gr.company = 'RAC'
+		and gr.level_1 = 'Sales'
+	left outer join NAVRep.dbo.Rentacrate$Customer c
+		on gl.[Source No_] collate SQL_Latin1_General_CP1_CI_AS = c.No_
+where
+	gl.[Posting Date] between @datestart and @dateend
+group by
+	year(gl.[Posting Date]),
+	month(gl.[Posting Date]),
+	isnull(gl.[Source No_], 'Unknown'),
+	isnull(c.Name, 'Unknown'),
+	isnull(c.County, 'Unknown'),
+	gl.[Document No_],
+	gl.[Shortcut Dimension 5 Code]

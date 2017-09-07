@@ -1,0 +1,63 @@
+--Use TNDCSQL03
+declare @datestart date = '2017-01-01'
+declare @dateend date = '2017-07-03'
+
+select
+  'HT' as GLCompany,
+  sih.[Sell-to Customer No_] as CustNbr,
+  c.Name as CustomerName,
+  sih.No_ as DocumentNumber,
+  sih.[Payment Method Code],
+  c.[Collection Agent Code],
+  sih.[Order Date],
+  sih.[Document Date],
+  sih.[Posting Date],
+  sum(sil.Amount) as InvoiceAmount
+from NAVRep.dbo.[Hi Touch$Sales Invoice Header] sih with(nolock)
+  left join navrep.dbo.[Hi Touch$Customer] c with(nolock)
+    on sih.[Sell-to Customer No_] = c.No_
+  inner join NAVRep.dbo.[Hi Touch$Sales Invoice Line] sil with(nolock)
+	on sih.No_ = sil.[Document No_]
+where
+   sih.[Payment Method Code] = 'CC'
+   and sih.[Posting Date] between @datestart and @dateend
+group by
+  sih.[Sell-to Customer No_],
+  c.Name,
+  sih.No_,
+  sih.[Payment Method Code],
+  c.[Collection Agent Code],
+  sih.[Order Date],
+  sih.[Document Date],
+  sih.[Posting Date]
+
+union all
+
+select
+  'MYOP' as GLCompany,
+  sih.[Sell-to Customer No_] as CustNbr,
+  c.Name as CustomerName,
+  sih.No_ as DocumentNumber,
+  sih.[Payment Method Code],
+  c.[Collection Agent Code],
+  sih.[Order Date],
+  sih.[Document Date],
+  sih.[Posting Date],
+  sum(sil.Amount) as InvoiceAmount
+from NAVRep.dbo.[MYOP$Sales Invoice Header] sih with(nolock)
+  left join navrep.dbo.[MYOP$Customer] c with(nolock)
+    on sih.[Sell-to Customer No_] = c.No_
+  inner join NAVRep.dbo.[MYOP$Sales Invoice Line] sil with(nolock)
+	on sih.No_ = sil.[Document No_]
+where
+   sih.[Payment Method Code] = 'CC'   
+   and sih.[Posting Date] between @datestart and @dateend
+group by
+  sih.[Sell-to Customer No_],
+  c.Name,
+  sih.No_,
+  sih.[Payment Method Code],
+  c.[Collection Agent Code],
+  sih.[Order Date],
+  sih.[Document Date],
+  sih.[Posting Date]

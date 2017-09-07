@@ -1,0 +1,52 @@
+DECLARE @datestart DATE = '2017-01-01'
+DECLARE @dateend DATE = '2017-05-31'
+
+select
+	ih.InvDate,	
+	case when id.InternalProdClassID = 22 or (id.InternalProdClassID = 4 and id.BusinessUnitID = 3) then 'MPS'
+		when id.InternalProdClassID in (25, 26) or (id.InternalProdClassID = 19 and id.BusinessUnitID = 3) then 'ITS' 
+		when id.BusinessUnitID = 10 then 'MYOI' 
+		when c.CustName like 'Tractor Supply%' or id.BusinessUnitID = 7 then 'Fulfillment' 
+		when id.InternalProdClassID = 27 or (id.InternalProdClassID = 2 and id.BusinessUnitID = 9) then 'Design Works' 
+		else 'Office Products'
+		end as Business_Unit,
+	ipc.InternalProdClassDesc,
+	ih.FullInvoiceNbr,
+	c.CustNbr,
+	c.CustName,
+	sy.SystemName,
+	sum(id.UnitSell * id.InvoicedQty) as SalesNoFrt,
+	sum(id.UnloadedPOSCost * id.InvoicedQty) as TotalUnLoadedCost
+from htdw.dbo.tInvoiceHeader ih with(nolock)
+	inner join htdw.dbo.tInvoiceDetail id with(nolock)
+		on ih.DWInvoiceID = id.DWInvoiceID
+	left outer join htdw.dbo.tSalesperson s with(nolock)
+		on ih.PrimaryRepSPID = s.SalespersonID
+	left outer join htdw.dbo.tCustomerMaster cm with(nolock)
+		on ih.CustomerMasterID = cm.CustomerMasterID
+	inner join htdw.dbo.tCustomer c with(nolock)
+		on cm.CustID = c.CustID
+	inner join htdw.dbo.tInternalProductClass ipc with(nolock)
+		on id.InternalProdClassID = ipc.InternalProdClassID
+	inner join htdw.dbo.tSystem sy with(nolock)
+		on ih.SystemID = sy.SystemID
+where
+	ih.InvDate between @datestart and @dateend
+	--and ih.isInternalSales = 0
+	and id.InternalProdClassID = 26
+group by
+	ih.InvDate,
+	case when id.InternalProdClassID = 22 or (id.InternalProdClassID = 4 and id.BusinessUnitID = 3) then 'MPS'
+		when id.InternalProdClassID in (25, 26) or (id.InternalProdClassID = 19 and id.BusinessUnitID = 3) then 'ITS' 
+		when id.BusinessUnitID = 10 then 'MYOI' 
+		when c.CustName like 'Tractor Supply%' or id.BusinessUnitID = 7 then 'Fulfillment' 
+		when id.InternalProdClassID = 27 or (id.InternalProdClassID = 2 and id.BusinessUnitID = 9) then 'Design Works' 
+		else 'Office Products'
+		end,
+	ipc.InternalProdClassDesc,
+	ih.FullInvoiceNbr,
+	c.CustNbr,
+	c.CustName,	
+	sy.SystemName
+having
+	abs(sum(id.InvoicedQty)) > 0

@@ -1,0 +1,122 @@
+--There are two data sets
+--Payments stuff
+--Invoice stuff
+
+
+declare @datestart date = '2016-01-01'
+declare @dateend date = '2016-12-31'
+
+create table #pmt(
+GLCompany varchar(25),
+CustNbr varchar(25),
+CustName varchar(75),
+PaymentDocType varchar(25),
+PaymentDocNbr varchar(25),
+PaymentDate date,
+ExternalDocNbr varchar(50),
+BalAcctNbr varchar(25),
+PaymentEntryNbr int,
+PaymentAmount decimal(20,10))
+
+
+insert into #pmt
+select
+	'RAC' as GLCompany,	
+	cle.[Customer No_],
+	c.Name as CustomerName,
+	case when cle.[Document Type] in (0, 1) then 'Payment'
+		when cle.[Document Type] = 6 then 'Refund'
+		else 'Unknown'
+		end as DocumentType,
+	cle.[Document No_],
+	cle.[Document Date],	
+	cle.[External Document No_],
+	cle.[Bal_ Account No_],
+	cle.[Entry No_] as PaymentEntryNbr,	
+	dcle.Amount	
+from NAVRep.dbo.[Rentacrate$Cust_ Ledger Entry] cle with(nolock)
+	inner join NAVRep.dbo.[Rentacrate$Detailed Cust_ Ledg_ Entry] dcle with(nolock)
+		on cle.[Entry No_] = dcle.[Cust_ Ledger Entry No_]
+	left join NAVRep.dbo.[Rentacrate$Customer] c with(nolock)
+		on cle.[Customer No_] = c.No_
+where
+	cle.[Posting Date] between @datestart and @dateend
+	and cle.[Bal_ Account No_] = 'Bank4'
+	and cle.[Document Type] in (0, 1, 6)
+	and dcle.[Entry Type] = 1
+
+
+
+
+
+create table #inv (
+GLCompany varchar(20),
+CustNbr varchar(25),
+InvoiceEntryNbr int,
+PaymentEntryNbr int,
+InvoiceNbr varchar(25),
+InvoiceDate date,
+InvoiceAmount decimal(20,10))
+
+
+insert into #inv
+
+select
+	'RAC' as GLCompany,
+	cle.[Customer No_],
+	cle.[Entry No_] as InvoiceEntryNbr,
+	p.PaymentEntryNbr,
+	cle.[Document No_] as InvoiceNbr,
+	cle.[Document Date] as InvoiceDate,
+	cle.[Sales (LCY)] as InvoiceAmount
+from NAVRep.dbo.[Rentacrate$Cust_ Ledger Entry] cle with(nolock)
+	inner join #pmt p
+		on cle.[Closed by Entry No_] = p.PaymentEntryNbr
+where
+	p.GLCompany = 'RAC'
+
+
+
+
+
+
+
+
+--Invoice
+create table #invoice_data (
+	GLCompany varchar(10),
+	CustNbr varchar(25),
+	CustName varchar(75),
+	InvoiceNbr varchar(25),
+	InvoiceDate date,
+	InvoiceAmount decimal(12, 2),
+	PaymentDocNbr varchar(25),
+	PaymentDate date,
+	PaymentAmount decimal(12, 2))
+
+
+insert into #invoice_data
+select
+	i.GLCompany,
+	p.CustNbr,
+	p.CustName,
+	i.InvoiceNbr,
+	i.InvoiceDate,
+	i.InvoiceAmount,
+	p.PaymentDocNbr,
+	p.PaymentDate,
+	p.PaymentAmount
+from #inv i
+	inner join #pmt p
+		on i.PaymentEntryNbr = p.PaymentEntryNbr
+
+--Payment Data
+--select * from #pmt
+	
+--Invoice Data
+select * from #invoice_data
+
+
+drop table #pmt
+drop table #inv
+drop table #invoice_data

@@ -1,0 +1,19 @@
+select
+	sl.[Sell-to Customer No_],
+	c.Name as Cust_Name,
+	sl.[Document No_],
+	sl.No_,	
+	sl.[Posting Date],	
+	sl.Description,
+	sl.Quantity,
+	sl.[Unit Price],
+	sl.[Unit Cost],
+	sl.[Line Amount],
+	sl.Amount
+from navrep.dbo.[Hi Touch$Sales Invoice Line] sl with(nolock)
+	left outer join navrep.dbo.[Hi Touch$Customer] c with(nolock)
+		on sl.[Sell-to Customer No_] = c.No_
+where
+	year(sl.[Posting Date]) = 2016
+	and sl.No_ = '35900'
+	and sl.Description = 'Internal Install - Payroll'

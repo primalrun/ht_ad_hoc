@@ -1,0 +1,152 @@
+--Use TNDCSQL03
+
+declare @datestart date = '2017-01-01'
+declare @dateend date = '2017-06-30'
+
+
+create table #invoice1 (
+	VendorNbr varchar(25),
+	VendorInvoice varchar(25),
+	PostDate date,
+	DocDate date,
+	GLAccount varchar(10),
+	Description varchar(100),
+	InvoiceAmount decimal(20,10))
+
+create table #result1 (
+	Company varchar(25),
+	VendorNbr varchar(25),
+	VendorName varchar(75),
+	VendorInvoice varchar(25),
+	PostDate date,
+	DocDate date,
+	OtherOpex varchar(75),
+	GLAccount varchar(10),
+	Description varchar(100),
+	InvoiceAmount decimal(20,10))
+
+--HT
+insert into #invoice1
+select
+	q1.VendorNbr,
+	q1.VendorInvoice,
+	q1.GLPostDate,
+	q1.GLDocDate,
+	gl.[G_L Account No_] as GLAccount,
+	gl.Description,
+	sum(gl.amount) as InvoiceAmount
+from (
+select
+	vle.[Vendor No_] as VendorNbr,
+	vle.[Document No_] as VendorInvoice,	
+	vle.[Entry No_] as EntryNbr,
+	gl.[Transaction No_] as TrxnNbr,
+	gl.[Posting Date] as GLPostDate,
+	gl.[Document Date] as GLDocDate	
+from NAVRep.dbo.[Hi Touch$Vendor Ledger Entry] vle with(nolock)
+	inner join NAVRep.dbo.[Hi Touch$G_L Entry] gl with(nolock)
+		on vle.[Entry No_] = gl.[Entry No_]
+where
+	vle.[Document Type] = 2
+	and vle.[Document Date] between @datestart and @dateend	
+) q1
+	inner join NAVRep.dbo.[Hi Touch$G_L Entry] gl with(nolock)
+		on q1.TrxnNbr = gl.[Transaction No_]
+		and q1.GLDocDate = gl.[Document Date]
+where
+	gl.[Document Date] between @datestart and @dateend
+	and gl.[Gen_ Posting Type] = 1	
+group by
+	q1.VendorNbr,
+	q1.VendorInvoice,
+	q1.GLPostDate,
+	q1.GLDocDate,	
+	gl.[G_L Account No_],
+	gl.Description
+
+insert into #result1
+select
+	'HT' as Company,
+	i.VendorNbr,
+	v.Name as VendorName,
+	i.VendorInvoice,
+	i.PostDate,
+	i.DocDate,
+	glr.level_2 as OtherOpex,
+	i.GLAccount,
+	i.Description,
+	i.InvoiceAmount
+from #invoice1 i
+	left join NAVRep.dbo.[Hi Touch$Vendor] v with(nolock)
+		on i.VendorNbr = v.No_ 
+	inner join HTDW.Playground.[myop\jason.walker].gl_account_reporting glr
+		on i.GLAccount = glr.gl_account
+		and glr.company = 'HT'
+		and glr.level_1 = 'Other Operating Expense'
+
+delete from #invoice1
+
+
+--MYOP
+insert into #invoice1
+select
+	q1.VendorNbr,
+	q1.VendorInvoice,
+	q1.GLPostDate,
+	q1.GLDocDate,
+	gl.[G_L Account No_] as GLAccount,
+	gl.Description,
+	sum(gl.amount) as InvoiceAmount
+from (
+select
+	vle.[Vendor No_] as VendorNbr,
+	vle.[Document No_] as VendorInvoice,	
+	vle.[Entry No_] as EntryNbr,
+	gl.[Transaction No_] as TrxnNbr,
+	gl.[Posting Date] as GLPostDate,
+	gl.[Document Date] as GLDocDate
+from NAVRep.dbo.[MYOP$Vendor Ledger Entry] vle with(nolock)
+	inner join NAVRep.dbo.[MYOP$G_L Entry] gl with(nolock)
+		on vle.[Entry No_] = gl.[Entry No_]
+where
+	vle.[Document Type] = 2
+	and vle.[Document Date] between @datestart and @dateend	
+) q1
+	inner join NAVRep.dbo.[MYOP$G_L Entry] gl with(nolock)
+		on q1.TrxnNbr = gl.[Transaction No_]
+		and q1.GLDocDate = gl.[Document Date]
+where
+	gl.[Document Date] between @datestart and @dateend
+	and gl.[Gen_ Posting Type] = 1	
+group by
+	q1.VendorNbr,
+	q1.VendorInvoice,
+	q1.GLPostDate,	
+	q1.GLDocDate,
+	gl.[G_L Account No_],
+	gl.Description
+
+insert into #result1
+select
+	'MYOP' as Company,
+	i.VendorNbr,
+	v.Name as VendorName,
+	i.VendorInvoice,
+	i.PostDate,
+	i.DocDate,
+	glr.level_2 as OtherOpex,
+	i.GLAccount,
+	i.Description,
+	i.InvoiceAmount
+from #invoice1 i
+	left join NAVRep.dbo.[MYOP$Vendor] v with(nolock)
+		on i.VendorNbr = v.No_ 
+	inner join HTDW.Playground.[myop\jason.walker].gl_account_reporting glr
+		on i.GLAccount = glr.gl_account
+		and glr.company = 'MYOP'
+		and glr.level_1 = 'Other Operating Expense'
+
+select * from #result1
+
+drop table #invoice1
+drop table #result1

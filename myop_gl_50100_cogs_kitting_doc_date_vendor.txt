@@ -1,0 +1,31 @@
+--Use TNDCSQL03
+
+declare @datestart date = '2017-01-01'
+declare @dateend date = '2017-04-30'
+
+select
+	gl.[Entry No_],
+	gl.[G_L Account No_],
+	gla.Name as GLDescription,
+	gl.[Posting Date],
+	gl.[Document No_],
+	gl.[Document Date],	
+	gl.[Source No_] as VendorNbr,
+	v.Name as VendorName,
+	gl.[External Document No_],	
+	gl.[Global Dimension 2 Code] as SellAs,
+	gl.[Shortcut Dimension 3 Code] as LocCode3,
+	gl.[Location Code],
+	gl.[Shortcut Dimension 4 Code] as Dept,
+	gl.[Shortcut Dimension 5 Code] as BusinessUnit,
+	gl.[User ID],
+	gl.Description as EntryDescription,
+	gl.Amount		
+from NAVRep.dbo.[MYOP$G_L Entry] gl with(nolock)
+	inner join NAVRep.dbo.[MYOP$G_L Account] gla with(nolock)
+		on gl.[G_L Account No_] = gla.No_
+	left outer join NAVRep.dbo.MYOP$Vendor v with(nolock)
+		on gl.[Source No_] = v.No_
+where
+	gl.[Posting Date] between @datestart and @dateend
+	and gl.[G_L Account No_] = '50100'

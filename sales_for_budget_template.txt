@@ -1,0 +1,111 @@
+DECLARE @dateend DATE = '2017-06-30'
+DECLARE @datestart DATE = '2017-01-01'
+
+
+--INSERT INTO Playground.[myop\jason.walker].jwtemp
+drop table Playground.[myop\jason.walker].jwtemp
+select
+	q2.BusinessUnit,
+	q2.ProductClass,
+	q2.CustName,
+	q2.RepCode,
+	q2.SalesRep,
+	q2.[Jan Sales],
+	q2.[Jan Cost],
+	q2.[Jan Sales] - q2.[Jan Cost] as [Jan Margin],
+	coalesce(((q2.[Jan Sales] - q2.[Jan Cost])/nullif(q2.[Jan Sales],0)),0) as [Jan Margin %],
+	q2.[Feb Sales],
+	q2.[Feb Cost],
+	q2.[Feb Sales] - q2.[Feb Cost] as [Feb Margin],
+	coalesce(((q2.[Feb Sales] - q2.[Feb Cost])/nullif(q2.[Feb Sales],0)),0) as [Feb Margin %],
+	q2.[Mar Sales],
+	q2.[Mar Cost],
+	q2.[Mar Sales] - q2.[Mar Cost] as [Mar Margin],
+	coalesce(((q2.[Mar Sales] - q2.[Mar Cost])/nullif(q2.[Mar Sales],0)),0) as [Mar Margin %],
+	q2.[Apr Sales],
+	q2.[Apr Cost],
+	q2.[Apr Sales] - q2.[Apr Cost] as [Apr Margin],
+	coalesce(((q2.[Apr Sales] - q2.[Apr Cost])/nullif(q2.[Apr Sales],0)),0) as [Apr Margin %],
+	q2.[May Sales],
+	q2.[May Cost],
+	q2.[May Sales] - q2.[May Cost] as [May Margin],
+	coalesce(((q2.[May Sales] - q2.[May Cost])/nullif(q2.[May Sales],0)),0) as [May Margin %],
+	q2.[Jun Sales],
+	q2.[Jun Cost],
+	q2.[Jun Sales] - q2.[Jun Cost] as [Jun Margin],
+	coalesce(((q2.[Jun Sales] - q2.[Jun Cost])/nullif(q2.[Jun Sales],0)),0) as [Jun Margin %]
+into Playground.[myop\jason.walker].jwtemp
+from (
+select
+	q1.Business_Unit as BusinessUnit,
+	q1.ProductClass,
+	q1.CustName,
+	q1.PrimarySalespersonCode as RepCode,
+	q1.SalesRep,
+	sum(case when q1.InvDate between '2017-01-01' and '2017-01-31' then q1.Sales else 0 end) as [Jan Sales],
+	sum(case when q1.InvDate between '2017-01-01' and '2017-01-31' then q1.Cost else 0 end) as [Jan Cost],
+	sum(case when q1.InvDate between '2017-02-01' and '2017-02-28' then q1.Sales else 0 end) as [Feb Sales],
+	sum(case when q1.InvDate between '2017-02-01' and '2017-02-28' then q1.Cost else 0 end) as [Feb Cost],
+	sum(case when q1.InvDate between '2017-03-01' and '2017-03-31' then q1.Sales else 0 end) as [Mar Sales],
+	sum(case when q1.InvDate between '2017-03-01' and '2017-03-31' then q1.Cost else 0 end) as [Mar Cost],
+	sum(case when q1.InvDate between '2017-04-01' and '2017-04-30' then q1.Sales else 0 end) as [Apr Sales],
+	sum(case when q1.InvDate between '2017-04-01' and '2017-04-30' then q1.Cost else 0 end) as [Apr Cost],
+	sum(case when q1.InvDate between '2017-05-01' and '2017-05-31' then q1.Sales else 0 end) as [May Sales],
+	sum(case when q1.InvDate between '2017-05-01' and '2017-05-31' then q1.Cost else 0 end) as [May Cost],
+	sum(case when q1.InvDate between '2017-06-01' and '2017-06-30' then q1.Sales else 0 end) as [Jun Sales],
+	sum(case when q1.InvDate between '2017-06-01' and '2017-06-30' then q1.Cost else 0 end) as [Jun Cost]
+from (
+select
+	ih.InvDate,	
+	case when id.InternalProdClassID = 22 or (id.InternalProdClassID = 4 and id.BusinessUnitID = 3) then 'MPS'
+		when id.InternalProdClassID in (25, 26) or (id.InternalProdClassID = 19 and id.BusinessUnitID = 3) then 'ITS' 
+		when id.BusinessUnitID = 10 then 'MYOI' 
+		when c.CustName like 'Tractor Supply%' or id.BusinessUnitID = 7 then 'Fulfillment' 
+		when id.InternalProdClassID = 27 or (id.InternalProdClassID = 2 and id.BusinessUnitID = 9) then 'Design Works' 
+		else 'Office Products'
+		end as Business_Unit,
+	ipc.InternalProdClassDesc as ProductClass,		
+	c.CustName,	
+	ih.PrimarySalespersonCode,
+	e.Name as SalesRep,	
+	sum(id.UnitSell * id.InvoicedQty)as Sales,	
+	sum(id.UnloadedPOSCost * id.InvoicedQty) as Cost
+from htdw.dbo.tInvoiceHeader ih with(nolock)
+	inner join htdw.dbo.tInvoiceDetail id with(nolock)
+		on ih.DWInvoiceID = id.DWInvoiceID
+	left outer join htdw.dbo.tSalesperson s with(nolock)
+		on ih.PrimaryRepSPID = s.SalespersonID
+	left outer join htdw.dbo.tEmployee e with(nolock)
+		on s.EmployeeID = e.EmployeeID
+	left outer join htdw.dbo.tCustomerMaster cm with(nolock)
+		on ih.CustomerMasterID = cm.CustomerMasterID
+	inner join htdw.dbo.tCustomer c with(nolock)
+		on cm.CustID = c.CustID
+	inner join htdw.dbo.tInternalProductClass ipc with(nolock)
+		on id.InternalProdClassID = ipc.InternalProdClassID
+where
+	ih.InvDate between @datestart and @dateend
+	and ih.isInternalSales = 0
+group by
+	ih.InvDate,	
+	case when id.InternalProdClassID = 22 or (id.InternalProdClassID = 4 and id.BusinessUnitID = 3) then 'MPS'
+		when id.InternalProdClassID in (25, 26) or (id.InternalProdClassID = 19 and id.BusinessUnitID = 3) then 'ITS' 
+		when id.BusinessUnitID = 10 then 'MYOI' 
+		when c.CustName like 'Tractor Supply%' or id.BusinessUnitID = 7 then 'Fulfillment' 
+		when id.InternalProdClassID = 27 or (id.InternalProdClassID = 2 and id.BusinessUnitID = 9) then 'Design Works' 
+		else 'Office Products'
+		end,
+	ipc.InternalProdClassDesc,		
+	c.CustName,	
+	ih.PrimarySalespersonCode,
+	e.Name	
+having
+	abs(sum(id.InvoicedQty)) > 0
+) q1
+group by
+	q1.Business_Unit,
+	q1.ProductClass,
+	q1.CustName,
+	q1.PrimarySalespersonCode,
+	q1.SalesRep
+) q2

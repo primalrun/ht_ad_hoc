@@ -1,0 +1,17 @@
+declare @datestart date = '2017-03-01'
+declare @dateend date = '2017-04-26'
+
+select
+	app.[AP PO Vendor ID],
+	app.[AP PO Vendor Name],	
+	app.[AP PO Date],
+	app.[AP PO Document No],
+	app.[AP PO Ext Document No],		
+	app.[AP PO Description],
+	app.[AP PO Total Amount]	
+from VBO_REP.dbo.[AP Purchase] app with(nolock)
+where
+	app.[AP PO Description] is not null
+	and app.[AP PO Date] between @datestart and @dateend
+	and (app.[AP PO Description] like '%amex%'
+	or app.[AP PO Description] like '%american express%')

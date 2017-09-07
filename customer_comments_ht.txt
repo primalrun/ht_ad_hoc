@@ -1,0 +1,55 @@
+use Playground
+go
+
+drop table [myop\jason.walker].jwtemp
+
+--last 2 comments
+create table #comment(
+	cust_nbr varchar(25),
+	myrow int,
+	comment varchar(500))
+
+insert into #comment
+select
+	q1.No_,
+	q1.myrow,
+	left(convert(varchar, q1.[Created Date_Time], 120),10) + ' ' + q1.Comment as Comment
+from (
+select
+	ccl.No_,
+	ccl.[Created Date_Time],	
+	ccl.Comment,
+	row_number() over(partition by ccl.no_ order by ccl.[Created Date_Time] desc) as myrow
+from TNDCSQL03.NAVRep.dbo.[Hi Touch$Confidential Comment Line] ccl with(nolock)
+where	
+	ccl.Comment <> '') q1
+where
+	q1.myrow in (1, 2)
+
+
+--customers with balance
+create table #cust_balance(
+	cust_nbr varchar(25),
+	balance decimal(14, 2))
+
+insert into #cust_balance
+select
+  dcle.[Customer No_],
+  sum(dcle.Amount) as Balance
+from TNDCSQL03.navrep.dbo.[Hi Touch$Detailed Cust_ Ledg_ Entry] dcle with(nolock)
+group by
+  dcle.[Customer No_]
+having
+  sum(dcle.Amount) > 0
+
+select
+	cb.cust_nbr,
+	cb.balance,
+	(select cm.comment from #comment cm where cm.cust_nbr = cb.cust_nbr and cm.myrow = 1) as Current_Comment,
+	(select cm.comment from #comment cm where cm.cust_nbr = cb.cust_nbr and cm.myrow = 2) as Previous_Comment
+into [myop\jason.walker].jwtemp
+from #cust_balance cb
+
+
+drop table #comment
+drop table #cust_balance

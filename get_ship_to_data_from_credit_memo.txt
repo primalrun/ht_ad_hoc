@@ -1,0 +1,12 @@
+--Run on TNDCSQL03
+--invoice numbers need to be uploaded into table invoice_input on Playground
+
+select
+	i.invoice_number as InvoiceNumber,
+	cmh.[Ship-to City] as ShipToCity,
+	cmh.[Ship-to County] as ShipToState,
+	cmh.[Ship-to Post Code] as ShipToZip
+from htdw.playground.[myop\jason.walker].invoice_input i
+	left outer join NAVRep.dbo.[Hi Touch$Sales CR_Memo Header] cmh with(nolock)
+		on i.invoice_number = cmh.no_
+

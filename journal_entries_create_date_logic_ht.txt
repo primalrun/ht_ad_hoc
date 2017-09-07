@@ -1,0 +1,91 @@
+declare @create_date_start date = '2017-02-16'
+declare @create_date_end date = getdate()
+declare @post_date_start date = '2016-12-01'
+declare @post_date_end date = '2016-12-31'
+
+--Get first entry number "NO_" from	[Hi Touch$G_L Register] for Starting Creation Date
+declare @entry_number_start int = (
+	select		
+		min(glr.[From Entry No_]) as entry_nbr
+	from NAVRep.dbo.[Hi Touch$G_L Register] glr with(nolock)
+	where
+		glr.[Creation Date] = @create_date_start)
+
+--Get last entry number "NO_" from	[Hi Touch$G_L Register] for Ending Creation Date
+declare @entry_number_end int = (
+	select		
+		max(glr.[To Entry No_]) as entry_nbr
+	from NAVRep.dbo.[Hi Touch$G_L Register] glr with(nolock)
+	where
+		glr.[Creation Date] = @create_date_end)
+
+
+create table #create_date(
+	Creation_Date date,
+	from_entry_nbr int,
+	to_entry_nbr int)
+
+insert into #create_date
+select
+	glr.[Creation Date],
+	glr.[From Entry No_],
+	glr.[To Entry No_]
+from NAVRep.dbo.[Hi Touch$G_L Register] glr
+where
+	glr.[Creation Date] between @create_date_start and @create_date_end
+
+
+--GL Data
+select
+	q1.*,
+	cd.Creation_Date
+from (
+
+select 
+	gl.[Entry No_],
+	gl.[User ID],	
+	gl.[Posting Date],
+	gl.[G_L Account No_],
+	gla.Name,
+	gl.[Location Code],
+	gl.[Global Dimension 1 Code] as AcqCode,
+	gl.[Global Dimension 2 Code] BusUnit,
+	gl.[Shortcut Dimension 3 Code] as Loc,
+	gl.[Shortcut Dimension 4 Code] as Dept,
+	gl.[Shortcut Dimension 5 Code] as SellAs,
+	CASE gl.[Document Type]
+		when 1 then 'Payment'
+		when 2 then 'Inv'
+		when 3 then 'Cred'
+		when 4 then 'FinCharge'
+		when 5 then 'Reminder'
+		when 6 then 'Refund'
+		else ''
+	end as Type,
+	gl.[Document No_],
+	gl.[Document Date],
+	gl.[Debit Amount],
+	gl.[Credit Amount],
+	gl.Amount,
+	case when gl.[System-Created Entry] = 1 then 'Yes' else 'No' end as SystemCreated,
+	gl.[Journal Batch Name],
+	gl.[Source Code],
+	gl.[Source Type],
+	gl.[Source No_],
+	gl.[Gen_ Bus_ Posting Group],
+	gl.[External Document No_],
+	gl.Description
+from NAVRep.dbo.[Hi Touch$G_L Entry] gl with(nolock)
+	left join NAVRep.dbo.[Hi Touch$G_L Account] gla with(nolock)
+		on gla.No_ = gl.[G_L Account No_]	
+where 
+		gl.[Source Code] = 'GENJNL' 
+		and gl.[Entry No_] between @entry_number_start and @entry_number_end
+		and gl.[Posting Date] between @post_date_start and @post_date_end
+
+) q1
+	inner join #create_date cd
+		on q1.[Entry No_] between cd.from_entry_nbr and cd.to_entry_nbr
+
+
+drop table #create_date

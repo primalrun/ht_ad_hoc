@@ -1,0 +1,98 @@
+DECLARE @dateend DATE = '2017-04-30'
+DECLARE @datestart DATE = '2017-01-01'
+
+begin try
+	drop table Playground.[myop\jason.walker].sales_cost_trend
+end try
+begin catch
+end catch;
+
+CREATE TABLE Playground.[myop\jason.walker].sales_cost_trend (
+	Period VARCHAR(7)
+	,DocTypeDesc VARCHAR(50)  
+	,BusinessUnit VARCHAR(50)
+	,FullInvoiceNbr varchar(25)
+	,CustNbr varchar(50)
+	,CustName varchar(75)
+	,PrimarySalespersonCode varchar(50)
+	,SalesEmployee varchar(75)
+	,SystemName VARCHAR(50)
+	,ExtProdNbr VARCHAR(50)
+	,ProdDesc VARCHAR(255)
+	,PONumber VARCHAR(100)
+	,VendorCode varchar(25)
+	,VendorName VARCHAR(50)
+	,SalesNoFrt DECIMAL(30,10)
+	,TotalLoadedCost DECIMAL(30,10)
+	,TotalUnloadedCost DECIMAL(30,10))
+
+
+INSERT INTO Playground.[myop\jason.walker].sales_cost_trend
+select
+	cast(year(ih.InvDate) as varchar(4)) + '-' + right('0' + cast(month(ih.InvDate) as varchar(2)), 2) as Period,
+	dt.DocTypeDesc,
+	case when id.InternalProdClassID = 22 or (id.InternalProdClassID = 4 and id.BusinessUnitID = 3) then 'MPS'
+		when id.InternalProdClassID in (25, 26) or (id.InternalProdClassID = 19 and id.BusinessUnitID = 3) then 'ITS' 
+		when id.BusinessUnitID = 10 then 'MYOI' 
+		when c.CustName like 'Tractor Supply%' or id.BusinessUnitID = 7 then 'Fulfillment' 
+		when id.InternalProdClassID = 27 or (id.InternalProdClassID = 2 and id.BusinessUnitID = 9) then 'Design Works' 
+		else 'Office Products'
+		end as Business_Unit,
+	ih.FullInvoiceNbr,
+	c.CustNbr,
+	c.CustName,
+	ih.PrimarySalespersonCode,
+	e.Name as SalesRep,
+	sy.SystemName,
+	id.ExtProdNbr,
+	id.LineDesc1,
+	isnull(nullif(id.OurPONbr, ''), 'Unknown') as PONbr,
+	isnull(v.VendorCd, 'Unknown') as VendorCd,
+	isnull(v.VendorName, 'Unknown') as VendorName,
+	sum(id.UnitSell * id.InvoicedQty) as SalesNoFrt,
+	sum(id.LoadedPOSCost * id.InvoicedQty) as TotalLoadedCost,
+	sum(id.UnloadedPOSCost * id.InvoicedQty) as TotalUnLoadedCost
+from htdw.dbo.tInvoiceHeader ih with(nolock)
+	inner join htdw.dbo.tInvoiceDetail id with(nolock)
+		on ih.DWInvoiceID = id.DWInvoiceID
+	left outer join htdw.dbo.tSalesperson s with(nolock)
+		on ih.PrimaryRepSPID = s.SalespersonID
+	left outer join htdw.dbo.tEmployee e with(nolock)
+		on s.EmployeeID = e.EmployeeID
+	left outer join htdw.dbo.tCustomerMaster cm with(nolock)
+		on ih.CustomerMasterID = cm.CustomerMasterID
+	inner join htdw.dbo.tCustomer c with(nolock)
+		on cm.CustID = c.CustID
+	left outer join htdw.dbo.tVendor v with(nolock)
+		on id.VendorID = v.VendorID
+	inner join htdw.dbo.tDocType dt with(nolock)
+		on ih.DocTypeID = dt.DocTypeID
+	inner join htdw.dbo.tSystem sy with(nolock)
+		on ih.SystemID = sy.SystemID
+where
+	ih.InvDate between @datestart and @dateend
+	and ih.isInternalSales = 0
+	and ih.PrimarySalespersonCode in ('1138', '1139', '1151', '1166', '1240')
+group by
+	cast(year(ih.InvDate) as varchar(4)) + '-' + right('0' + cast(month(ih.InvDate) as varchar(2)), 2),
+	dt.DocTypeDesc,
+	case when id.InternalProdClassID = 22 or (id.InternalProdClassID = 4 and id.BusinessUnitID = 3) then 'MPS'
+		when id.InternalProdClassID in (25, 26) or (id.InternalProdClassID = 19 and id.BusinessUnitID = 3) then 'ITS' 
+		when id.BusinessUnitID = 10 then 'MYOI' 
+		when c.CustName like 'Tractor Supply%' or id.BusinessUnitID = 7 then 'Fulfillment' 
+		when id.InternalProdClassID = 27 or (id.InternalProdClassID = 2 and id.BusinessUnitID = 9) then 'Design Works' 
+		else 'Office Products'
+		end,
+	ih.FullInvoiceNbr,
+	c.CustNbr,
+	c.CustName,	
+	ih.PrimarySalespersonCode,
+	e.Name,
+	sy.SystemName,
+	id.ExtProdNbr,
+	id.LineDesc1,
+	isnull(nullif(id.OurPONbr, ''), 'Unknown'),
+	isnull(v.VendorCd, 'Unknown'),
+	isnull(v.VendorName, 'Unknown')
+having
+	abs(sum(id.InvoicedQty)) > 0

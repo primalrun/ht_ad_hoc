@@ -1,0 +1,358 @@
+declare @datestart date ='2017-06-01'
+declare @dateend date ='2017-06-30'
+
+--invoice id, salesperson in period
+CREATE TABLE #tjw_invheader (
+   DWInvoiceID BIGINT
+  ,RouteCd varchar(50)
+  ,FullInvoiceNbr VARCHAR(25)
+  ,DocTypeID INT
+  ,PrimaryRepSPID INT
+  ,PrimarySalesPersonCode VARCHAR(50)
+  ,SystemID SMALLINT
+  ,CompanyID SMALLINT
+  ,CustomerMasterID INT)
+
+INSERT INTO #tjw_invheader
+SELECT
+   ih.DWInvoiceID
+  ,ih.RouteCd
+  ,ih.FullInvoiceNbr
+  ,ih.DocTypeID
+  ,ih.PrimaryRepSPID
+  ,ih.PrimarySalespersonCode
+  ,ih.SystemID
+  ,ih.CompanyID
+  ,ih.CustomerMasterID
+FROM HTDW.dbo.tInvoiceHeader ih WITH(NOLOCK)  
+WHERE
+   ih.InvDate BETWEEN @datestart AND @dateend
+   and ih.PrimarySalespersonCode in ('AAAAA', 'AJ999', 'BBBBB', 'CA999', 'MYPOINTS', 'MUR999', 'NA999', 'RS999')
+   AND ih.FullInvoiceNbr NOT LIKE 'CA2%'   
+
+
+--invoice id, business unit id, prodclass id, sales no freight, unloaded cost
+CREATE TABLE #tjw_invdetail (
+   DWInvoiceID BIGINT
+  ,BusinessUnitID INT
+  ,InternalProdClassID INT
+  ,SKU varchar(75)
+  ,VendorID int
+  ,Qty decimal(10,2)
+  ,SalesNoFrt DECIMAL(30,10)
+  ,TotalLoadedCost DECIMAL(30,10))
+
+INSERT INTO #tjw_invdetail
+SELECT
+   ti.DWInvoiceID
+  ,id.BusinessUnitID
+  ,id.InternalProdClassID
+  ,id.ExtProdNbr
+  ,id.VendorID
+  ,id.InvoicedQty
+  ,round(SUM(id.InvoicedQty * id.UnitSell),2)
+  ,round(SUM(id.InvoicedQty * id.LoadedPOSCost),2)
+FROM #tjw_invheader ti 
+   INNER JOIN HTDW.dbo.tInvoiceDetail id WITH(NOLOCK)
+      ON ti.DWInvoiceID = id.DWInvoiceID
+GROUP BY
+   ti.DWInvoiceID
+  ,id.BusinessUnitID
+  ,id.InternalProdClassID
+  ,id.ExtProdNbr
+  ,id.VendorID
+  ,id.InvoicedQty
+
+--sales person id, division id, sales location id, employee id
+CREATE TABLE #tjw_salesperson (
+   PrimaryRepSPID INT
+  ,PrimaryDivisionID SMALLINT
+  ,SalesLocationID INT
+  ,EmployeeID INT)
+
+INSERT INTO #tjw_salesperson
+SELECT
+   s.SalespersonID
+  ,s.PrimaryDivisionID
+  ,s.SalesLocationID
+  ,s.EmployeeID  
+FROM HTDW.dbo.tSalesperson s WITH(NOLOCK)
+   INNER JOIN (SELECT DISTINCT tih.PrimaryRepSPID FROM #tjw_invheader tih) tih1
+      ON tih1.PrimaryRepSPID = s.SalespersonID
+
+
+--location reclass
+CREATE TABLE #tjw_locationreclass (
+   DivisionID SMALLINT
+  ,FixedLocationID INT)
+
+INSERT INTO #tjw_locationreclass
+SELECT
+   d.DivisionID
+  ,d.FixedLocationID
+FROM HTDW.dbo.tDivision d with(nolock)
+WHERE
+   d.FixedLocationID IS NOT NULL
+
+UPDATE tsp
+   SET tsp.SalesLocationID = tlr.FixedLocationID     
+from #tjw_salesperson tsp
+   INNER JOIN #tjw_locationreclass tlr
+      ON tsp.PrimaryDivisionID = tlr.DivisionID
+
+--region
+CREATE TABLE #tjw_region (
+   LocationID INT
+  ,RegionID INT
+  ,RegionName VARCHAR(100))
+  
+INSERT INTO #tjw_region
+SELECT DISTINCT
+   tsp.SalesLocationID
+  ,loc.RegionID
+  ,rg.RegionName
+FROM #tjw_salesperson tsp
+   INNER JOIN HTDW.dbo.tLocation loc
+      ON tsp.SalesLocationID = loc.LocationID
+   INNER JOIN HTDW.dbo.tRegion rg
+      ON loc.RegionID = rg.RegionID
+
+--combine temp tables stage 1
+CREATE TABLE #rsstage1 (
+   DocTypeDesc VARCHAR(50)
+  ,Category VARCHAR(50)
+  ,RouteCd varchar(25)
+  ,FullInvoiceNbr VARCHAR(25)
+  ,PrimarySalespersonCode varchar(50)
+  ,DivisionID SMALLINT
+  ,AdjBusinessID TINYINT
+  ,BusinessUnitID SMALLINT
+  ,InternalProductClassID TINYINT
+  ,SKU varchar(75)
+  ,VendorID int
+  ,CompanyID SMALLINT
+  ,CustID INT
+  ,SystemID INT
+  ,Qty decimal(10,3)
+  ,SalesNoFrt DECIMAL(30,10)
+  ,TotalLoadedCost DECIMAL(30,10))
+
+INSERT INTO #rsstage1
+SELECT
+   dt.DocTypeDesc
+  ,CASE WHEN tih.PrimarySalespersonCode = 'AAAAA' THEN 'Shortages'
+      WHEN tih.PrimarySalespersonCode = 'BBBBB' THEN 'Unconfirmed Shortages'
+      WHEN tih.PrimarySalespersonCode = 'AJ999' THEN 'MRO/Sales Samples'
+      WHEN tih.PrimarySalespersonCode = 'CA999' THEN 'MRO/Sales Samples'
+      WHEN tih.PrimarySalespersonCode = 'MUR999' THEN 'Intercompany'
+      WHEN tih.PrimarySalespersonCode = 'NA000' THEN 'MRO/Sales Samples'
+      WHEN tih.PrimarySalespersonCode = 'RS999' THEN 'Random Source'
+      ELSE 'External' END AS Category
+  ,tih.RouteCd
+  ,tih.FullInvoiceNbr
+  ,tih.PrimarySalesPersonCode  
+  ,dv.DivisionID
+  ,NULL
+  ,bu.BusinessUnitID
+  ,ipc.InternalProdClassID
+  ,tid.SKU
+  ,tid.VendorID
+  ,co.CompanyID
+  ,cust.CustID
+  ,sy.SystemID
+  ,tid.Qty
+  ,SUM(tid.SalesNoFrt) AS SalesNoFrt
+  ,SUM(tid.TotalLoadedCost) AS TotalLoadedCost
+FROM #tjw_invheader tih
+   INNER JOIN #tjw_invdetail tid with(nolock)
+      ON tih.DWInvoiceID = tid.DWInvoiceID
+   INNER JOIN #tjw_salesperson tsp with(nolock)
+      ON tih.PrimaryRepSPID = tsp.PrimaryRepSPID
+   INNER JOIN HTDW.dbo.tDivision dv with(nolock)
+      ON tsp.PrimaryDivisionID = dv.DivisionID
+   INNER JOIN #tjw_region tr
+      ON tsp.SalesLocationID = tr.LocationID
+   INNER JOIN HTDW.dbo.tEmployee e with(nolock)
+      ON tsp.EmployeeID = e.EmployeeID
+   INNER JOIN HTDW.dbo.tSystem sy with(nolock)
+      ON tih.SystemID = sy.SystemID
+   INNER JOIN HTDW.dbo.tCompany co with(nolock)
+      ON tih.CompanyID = co.CompanyID
+   INNER JOIN HTDW.dbo.tCustomerMaster cm with(nolock)
+      ON tih.CustomerMasterID = cm.CustomerMasterID
+   INNER JOIN HTDW.dbo.tCustomer cust with(nolock)
+      ON cm.CustID = cust.CustID
+   LEFT JOIN HTDW.dbo.tBusinessUnit bu with(nolock)
+      ON tid.BusinessUnitID = bu.BusinessUnitID
+   LEFT JOIN HTDW.dbo.tInternalProductClass ipc with(nolock)
+      ON tid.InternalProdClassID = ipc.InternalProdClassID
+   LEFT JOIN HTDW.dbo.tDocType dt with(nolock)
+      ON tih.DocTypeID = dt.DocTypeID
+GROUP BY
+   dt.DocTypeDesc
+  ,CASE WHEN tih.PrimarySalespersonCode = 'AAAAA' THEN 'Shortages'
+      WHEN tih.PrimarySalespersonCode = 'BBBBB' THEN 'Unconfirmed Shortages'
+      WHEN tih.PrimarySalespersonCode = 'AJ999' THEN 'MRO/Sales Samples'
+      WHEN tih.PrimarySalespersonCode = 'CA999' THEN 'MRO/Sales Samples'
+      WHEN tih.PrimarySalespersonCode = 'MUR999' THEN 'Intercompany'
+      WHEN tih.PrimarySalespersonCode = 'NA000' THEN 'MRO/Sales Samples'
+      WHEN tih.PrimarySalespersonCode = 'RS999' THEN 'Random Source'
+      ELSE 'External' END
+  ,tih.RouteCd
+  ,tih.FullInvoiceNbr   
+  ,tih.PrimarySalesPersonCode  
+  ,dv.DivisionID
+  ,bu.BusinessUnitID
+  ,ipc.InternalProdClassID
+  ,tid.SKU
+  ,tid.VendorID
+  ,co.CompanyID
+  ,cust.CustID
+  ,sy.SystemID
+  ,tid.Qty
+
+--reporting hierarchy
+CREATE TABLE #rpthierarchy (
+   id TINYINT
+  ,businessunit VARCHAR(35))
+
+INSERT INTO #rpthierarchy
+VALUES
+ (1, 'MPS')
+,(2, 'ITS')
+,(3, 'MYOI')
+,(4, 'Fulfillment')
+,(5, 'Design Works')
+,(6, 'Office Products')
+
+
+--apply reporting hierarchy logic
+
+--MPS
+UPDATE rs1
+   SET rs1.AdjBusinessID = 1
+from #rsstage1 rs1
+WHERE
+   rs1.InternalProductClassID = 22
+
+   OR
+
+   rs1.BusinessUnitID = 3
+   AND rs1.InternalProductClassID = 4;
+
+
+--ITS
+UPDATE rs1
+   SET rs1.AdjBusinessID = 2
+from #rsstage1 rs1
+WHERE
+   rs1.InternalProductClassID IN (25, 26)
+
+   OR
+
+   rs1.BusinessUnitID = 3
+   AND rs1.InternalProductClassID = 19;
+
+--MOYI
+UPDATE rs1
+   SET rs1.AdjBusinessID = 3
+from #rsstage1 rs1
+WHERE
+   rs1.DivisionID = 2;
+
+--Fulfillment
+CREATE TABLE #tsc1 (
+   id INT)
+
+INSERT INTO #tsc1
+SELECT
+   c.CustID
+FROM HTDW.dbo.tCustomer c WITH(NOLOCK)
+WHERE
+   c.CustName LIKE 'Tractor Supply%'
+  
+UPDATE rs1
+   SET rs1.AdjBusinessID = 4
+from #rsstage1 rs1 INNER JOIN #tsc1 t
+      ON rs1.CustID = t.id;
+
+UPDATE rs1
+   SET rs1.AdjBusinessID = 4
+from #rsstage1 rs1
+WHERE
+   rs1.BusinessUnitID = 7;
+
+--Design Works
+UPDATE rs1
+   SET rs1.AdjBusinessID = 5
+from #rsstage1 rs1
+WHERE
+   rs1.InternalProductClassID = 27
+
+   OR
+   
+   rs1.BusinessUnitID = 9
+   AND rs1.InternalProductClassID = 2;
+
+--Office Products
+UPDATE rs1
+   SET rs1.AdjBusinessID = 6
+from #rsstage1 rs1
+WHERE
+   rs1.AdjBusinessID IS NULL;
+
+
+SELECT
+   rs1.Category  
+  ,rs1.PrimarySalespersonCode
+  ,c1.CustNbr
+  ,c1.CustName
+  ,rs1.RouteCd
+  ,rs1.FullInvoiceNbr
+  ,rh.businessunit AS BusinessUnit
+  ,rs1.SKU
+  ,v.VendorName  
+  ,rs1.Qty
+  ,SUM(rs1.SalesNoFrt) AS SalesNoFrt
+  ,SUM(rs1.TotalLoadedCost) AS LoadedCost
+FROM #rsstage1 rs1
+   INNER JOIN HTDW.dbo.tDivision d with(nolock)
+      ON rs1.DivisionID = d.DivisionID
+   INNER JOIN #rpthierarchy rh with(nolock)
+      ON rs1.AdjBusinessID = rh.id
+   LEFT JOIN HTDW.dbo.tBusinessUnit bu with(nolock)
+      ON rs1.BusinessUnitID = bu.BusinessUnitID
+   LEFT JOIN HTDW.dbo.tInternalProductClass ipc with(nolock)
+      ON rs1.InternalProductClassID = ipc.InternalProdClassID
+   INNER JOIN HTDW.dbo.tCompany c with(nolock)
+      ON rs1.CompanyID = c.CompanyID
+   INNER JOIN HTDW.dbo.tCustomer c1 with(nolock)
+      ON rs1.CustID = c1.CustID
+   INNER JOIN HTDW.dbo.tSystem sy with(nolock)
+      ON rs1.SystemID = sy.SystemID
+   left join htdw.dbo.tVendor v with(nolock)
+     on rs1.VendorID = v.VendorID
+GROUP BY
+   rs1.Category
+  ,rs1.PrimarySalespersonCode
+  ,c1.CustNbr
+  ,c1.CustName
+  ,rs1.RouteCd
+  ,rs1.FullInvoiceNbr
+  ,rh.businessunit
+  ,rs1.SKU
+  ,v.VendorName
+  ,rs1.Qty
+  
+
+DROP TABLE #tjw_invheader
+DROP TABLE #tjw_invdetail
+DROP TABLE #tjw_salesperson
+DROP TABLE #tjw_locationreclass
+DROP TABLE #tjw_region
+DROP TABLE #rsstage1  
+DROP TABLE #rpthierarchy
+DROP TABLE #tsc1
+
+
+

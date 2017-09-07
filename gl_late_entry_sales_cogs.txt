@@ -1,0 +1,31 @@
+select
+	'HT' as GLCompany,
+	gl.[G_L Account No_],
+	gl.[Posting Date],
+	gl.[Document No_],
+	gl.Description,
+	gl.[External Document No_],
+	gl.[User ID],
+	gl.Amount
+from NAVRep.dbo.[Hi Touch$G_L Entry] gl with(nolock)
+where
+	gl.[Posting Date] between '2017-03-01' and '2017-03-31'
+	and gl.[Document No_] = '3113'
+	and gl.[System-Created Entry] = 0
+
+union all
+
+select
+	'MYOP' as GLCompany,
+	gl.[G_L Account No_],
+	gl.[Posting Date],
+	gl.[Document No_],
+	gl.Description,
+	gl.[External Document No_],
+	gl.[User ID],
+	gl.Amount
+from NAVRep.dbo.[MYOP$G_L Entry] gl with(nolock)
+where
+	gl.[Posting Date] between '2017-03-01' and '2017-03-31'
+	and gl.[Document No_] = 'JE001898'
+	and gl.[System-Created Entry] = 0

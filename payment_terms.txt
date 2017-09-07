@@ -1,0 +1,21 @@
+select
+	c.No_,
+	c.Name,
+	c.[Payment Terms Code]
+from NAVRep.dbo.[Hi Touch$Customer] c with(nolock)
+
+union all
+
+select
+	c.No_,
+	c.Name,
+	c.[Payment Terms Code]
+from NAVRep.dbo.[MYOP$Customer] c with(nolock)
+
+union all
+
+select
+	c.No_,
+	c.Name,
+	c.[Payment Terms Code]
+from NAVRep.dbo.[Rentacrate$Customer] c with(nolock)

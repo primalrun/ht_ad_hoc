@@ -1,0 +1,21 @@
+select
+	c.CustNbr,
+	c.CustName,
+	ih.FullInvoiceNbr,
+	ih.InvDate,
+	sum(id.UnitSell*id.InvoicedQty) as Sales
+from htdw.dbo.tInvoiceHeader ih with(nolock)
+	inner join HTDW.dbo.tInvoiceDetail id with(nolock)
+		on ih.DWInvoiceID = id.DWInvoiceID
+	inner join htdw.dbo.tCustomerMaster cm with(nolock)
+		on ih.CustomerMasterID = cm.CustomerMasterID
+	inner join htdw.dbo.tCustomer c with(nolock)
+		on cm.CustID = c.CustID
+where
+	c.CustNbr in ('220044', '81909', '220045')
+	and year(ih.InvDate) = 2016
+group by
+	c.CustNbr,
+	c.CustName,
+	ih.FullInvoiceNbr,
+	ih.InvDate

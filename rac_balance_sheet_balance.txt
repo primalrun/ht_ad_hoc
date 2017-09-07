@@ -1,0 +1,12 @@
+--Use TNDCSQL03
+
+select
+	gl.[G_L Account No_],
+	sum(case when gl.[Posting Date] <= '2017-06-28' then gl.Amount else 0 end) as Balance_20170628,
+	sum(case when gl.[Posting Date] <= '2017-06-30' then gl.Amount else 0 end) as Balance_20170630
+from navrep.[dbo].[Rentacrate$G_L Entry] gl
+where
+	gl.[Posting Date]<= '2017-06-30'
+	and [G_L Account No_] in ('23151', '23160', '23165', '23500')
+group by
+	gl.[G_L Account No_]

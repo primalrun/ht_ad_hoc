@@ -1,0 +1,328 @@
+use navrep
+go
+
+DECLARE @rdate AS datetime;
+declare @datetemp date;
+declare @count int = 1;
+declare @count_total int = 1;
+SET @rdate =  '2017-06-28'
+set @datetemp = @rdate;
+
+
+
+--RAC Transactions
+create table #rac_trxn (
+	ReportDate date,
+	VendNbr varchar(25),
+	VendName varchar(75),
+	EntryNumber bigint,
+	PaymentTerms varchar(125),
+	APContactTitle varchar(200),
+	APContactName varchar(200),
+	APContactPhone varchar(200),
+	APContactEmail varchar(200),
+	Blocked varchar(10),
+	OpenBal decimal(20, 12),
+	DocDate_NotDue decimal(20, 12),
+	DocDate_0_30 decimal(20, 12),
+	DocDate_31_60 decimal(20, 12),
+	DocDate_61_90 decimal(20, 12),
+	DocDate_91_120 decimal(20, 12),
+	DocDate_Over_120 decimal(20, 12),
+	DueDate_NotDue decimal(20, 12),
+	DueDate_Current decimal(20, 12),
+	DueDate_0_30 decimal(20, 12),
+	DueDate_31_60 decimal(20, 12),
+	DueDate_61_90 decimal(20, 12),
+	DueDate_91_120 decimal(20, 12),
+	DueDate_Over_120 decimal(20, 12)
+	)		
+
+
+while @count <= @count_total
+begin
+	set @rDate = @datetemp;
+	insert into #rac_trxn
+select
+	@datetemp as ReportDate,
+	CU.No_ as VendNbr,
+	CU.[Name] AS VendName,
+	ATB.[Entry No_],
+	CU.[Payment Terms Code] + ' - ' + PT.Description AS PaymentTerms,
+	CON.[Job Title] as APContTitle,
+	CON.Name APContName,
+	CON.[Phone No_] APContPhone,
+	CON.[E-Mail] APContEmail,
+	CASE 
+		when CU.Blocked = 1 then
+		'Yes'
+		else 'No'
+	END AS 'Blocked(Y/N)',
+	--CU.[OP Period Type],
+	SUM(ATB.OpenBal) as OpenBal,
+	SUM(ATB.[Not Due]) as NotDue,
+	SUM(ATB.[0-30]) as [0 - 30],
+	SUM(ATB.[31-60]) as [31 - 60],
+	SUM(ATB.[61-90]) as [61 - 90],
+	SUM(ATB.[91-120]) as [91 - 120],
+	SUM(ATB.[Above 120]) as [Over120],
+	SUM([D_NotDue]) as D_NotDue,
+	SUM(ATB.D_Current) as [D_Current],
+	SUM(ATB.[D_0-30]) as [D_0 - 30],
+	SUM(ATB.[D_31-60]) as [D_31 - 60],
+	SUM(ATB.[D_61-90]) as [D_61 - 90],
+	SUM(ATB.[D_91-120]) as [D_91 - 120],
+	SUM(ATB.D_Over120) as [D_Over120]
+from 
+(
+
+	select
+		CL.[Entry No_],
+		OA.OpenBal,
+		CL.[Document Date] as AgingDate,
+		CL.[Posting Date] as PostingDate,
+		---- AGING by Document Date
+		0 as [Not Due],
+		(case when DATEDIFF(DAY,CL.[Document Date],dateadd("d",-1, @rdate)) <= 30 then OA.OpenBal else 0 end) as [0-30],
+		(case when DATEDIFF(DAY,CL.[Document Date],dateadd("d",-1, @rdate)) between 31 and 60 then OA.OpenBal else 0 end) as [31-60],
+		(case when DATEDIFF(DAY,CL.[Document Date],dateadd("d",-1, @rdate)) between 61 and 90 then OA.OpenBal else 0 end) as [61-90],
+		(case when DATEDIFF(DAY,CL.[Document Date],dateadd("d",-1, @rdate)) between 91 and 120 then OA.OpenBal else 0 end) as [91-120],
+		(case when DATEDIFF(DAY,CL.[Document Date],dateadd("d",-1, @rdate)) > 120 then OA.OpenBal else 0 end) 	as [Above 120],
+		---- AGING by Due Date
+		0 as [D_NotDue],
+		(case when DATEDIFF(DAY,CL.[Due Date],dateadd("d",-1, @rdate)) < 0 then OA.OpenBal else 0 end) as [D_Current],
+		(case when DATEDIFF(DAY,CL.[Due Date],dateadd("d",-1, @rdate)) Between 0 and 30 then OA.OpenBal else 0 end) as [D_0-30],		
+		(case when DATEDIFF(DAY,CL.[Due Date],dateadd("d",-1, @rdate)) Between 31 and 60 then OA.OpenBal else 0 end) as [D_31-60],
+		(case when DATEDIFF(DAY,CL.[Due Date],dateadd("d",-1, @rdate)) Between 61 and 90 then OA.OpenBal else 0 end) as [D_61-90],
+		(case when DATEDIFF(DAY,CL.[Due Date],dateadd("d",-1, @rdate)) Between 91 and 120 then OA.OpenBal else 0 end) as [D_91-120],
+		(case when DATEDIFF(DAY,CL.[Due Date],dateadd("d",-1, @rdate)) > 120 then OA.OpenBal else 0 end) as [D_Over120]
+	from
+		dbo.[Rentacrate$Vendor Ledger Entry] CL
+		left join
+		(select  
+			DL.[Vendor Ledger Entry No_],
+			SUM(DL.Amount) as OpenBal
+		from 
+			dbo.[Rentacrate$Detailed Vendor Ledg_ Entry] DL
+		where 
+			DL.[Posting Date] <= @rdate
+			--and DL.[Vendor No_] not in ('V00001','V00002','V01101')
+		group by
+			DL.[Vendor Ledger Entry No_]
+		) OA
+			on OA.[Vendor Ledger Entry No_] = CL.[Entry No_]
+	where 
+		--CL.[Document Date] <= '08/17/15'
+		CL.[Posting Date] <= @rdate
+		and ABS(OA.OpenBal) > 0
+		--and CL.[Vendor No_] not in ('V00001','V00002','V01101')
+
+) ATB
+	left join dbo.[Rentacrate$Vendor Ledger Entry] CL
+		on CL.[Entry No_] = ATB.[Entry No_]
+	left join dbo.[Rentacrate$Vendor] CU
+		on CU.No_ = CL.[Vendor No_]
+	LEFT JOIN dbo.[Rentacrate$Payment Terms] PT
+		ON PT.Code = CU.[Payment Terms Code]
+	LEFT JOIN [Rentacrate$Contact] CON
+		ON CON.No_ = CU.[Primary Contact No_]
+	left join
+		(select  
+			DL.[Vendor Ledger Entry No_],
+			(DL.Amount) as OrigAmt
+		from 
+			dbo.[Rentacrate$Detailed Vendor Ledg_ Entry] DL
+		where 
+			DL.[Posting Date] <= @rdate
+			and DL.[Entry Type] = 1
+		) OA
+			on OA.[Vendor Ledger Entry No_] = CL.[Entry No_]
+-- Last Payment
+	left join				
+		(SELECT
+			MAX(DL1.[Entry No_]) as L1ENTRY,
+			DL1.[Vendor No_] as Vendor_Num
+		FROM 	
+			dbo.[Rentacrate$Detailed Vendor Ledg_ Entry] DL1
+		Where
+			DL1.[Document Type] = 1
+			and DL1.[Entry Type] = 1
+		GROUP BY
+			DL1.[Vendor No_]
+		) AS LP1
+			on LP1.Vendor_Num = CL.[Vendor No_]
+	LEFT JOIN dbo.[Rentacrate$Detailed Vendor Ledg_ Entry] DE
+			ON DE.[Entry No_] = LP1.L1ENTRY
+
+group by
+	CU.No_ ,
+	CU.[Name],
+	ATB.[Entry No_],
+	CU.[Payment Terms Code] + ' - ' + PT.Description ,
+	CON.[Job Title],
+	CON.Name,
+	CON.[Phone No_],
+	CON.[E-Mail],
+	CU.Blocked,
+	DE.[Posting Date],
+	DE.[Document No_],
+	DE.Amount
+
+	set @count = @count + 1;
+	set @datetemp = DATEADD("d",-datepart("d",@datetemp),@datetemp)
+	
+end
+
+------------------------------------Data Results---------------------------------------------------------------
+
+--Aging
+create table #aging (
+	ReportDate date,
+	VendNbr varchar(30),
+	VendName varchar(75),
+	EntryNumber bigint,
+	Trxn_Nbr bigint,
+	Doc_Nbr varchar(30),
+	DocDate date,
+	OpenBal decimal(12, 4),
+	NotDue decimal(12, 4),
+	[0-30] decimal(12, 4),
+	[31-60] decimal(12, 4),
+	[61-90] decimal(12, 4),
+	[91-120] decimal(12, 4),
+	Over120 decimal(12, 4)
+)
+
+insert into #aging
+select
+	rt.ReportDate,
+	rt.VendNbr,
+	rt.VendName,
+	rt.EntryNumber,
+	gl.[Transaction No_],
+	gl.[Document No_],
+	gl.[Document Date],	
+	sum(rt.OpenBal) as OpenBal,
+	sum(rt.DocDate_NotDue) as NotDue,
+	sum(rt.DocDate_0_30) as [0-30],
+	sum(rt.DocDate_31_60) as [31-60],
+	sum(rt.DocDate_61_90) as [61-90],
+	sum(rt.DocDate_91_120) as [91-120],
+	sum(rt.DocDate_Over_120) as Over120
+from #rac_trxn rt
+	left outer join NAVRep.dbo.[Rentacrate$G_L Entry] gl with(nolock)
+		on rt.EntryNumber = gl.[Entry No_]
+group by
+	rt.ReportDate,
+	rt.VendNbr,
+	rt.VendName,
+	rt.EntryNumber,
+	gl.[Transaction No_],
+	gl.[Document No_],
+	gl.[Document Date]
+	
+
+--Invoice and Sell As data
+create table #invoice (
+	Trxn_Nbr bigint,
+	Sell_As varchar(25),
+	Invoice_Amount decimal (12, 4),
+	Invoice_Total decimal(12,4),
+	Invoice_Pct decimal(8, 6),
+	Row_Nbr smallint
+)
+
+
+insert into #invoice
+select
+	q2.[Transaction No_],
+	q2.Sell_As,
+	q2.Invoice_Amount,
+	q2.Invoice_Total,
+	(q2.Invoice_Amount / q2.Invoice_Total) as Invoice_Pct,
+	row_number() over (partition by q2.[Transaction No_] order by q2.[Transaction No_]) as Row_Nbr
+from (
+select
+	q1.[Transaction No_],
+	q1.Sell_As,
+	q1.Invoice_Amount,
+	sum(q1.Invoice_Amount) over(partition by q1.[Transaction No_]) as Invoice_Total
+from (
+select
+	gl.[Transaction No_],
+	gl.[Shortcut Dimension 5 Code] as Sell_As,
+	sum(gl.Amount) as Invoice_Amount	
+from NAVRep.dbo.[Rentacrate$G_L Entry] gl with(nolock)
+	inner join (
+	select
+		a.EntryNumber,
+		a.Trxn_Nbr
+	from #aging a
+	group by
+		a.EntryNumber,
+		a.Trxn_Nbr) a1
+		on gl.[Transaction No_] = a1.Trxn_Nbr
+where
+	gl.[Entry No_] <> a1.EntryNumber	
+group by
+	gl.[Transaction No_],
+	gl.[Shortcut Dimension 5 Code]
+) q1	
+) q2
+
+
+
+--Invoice Percent Variance
+create table #variance (
+	Trxn_Nbr bigint,
+	Inv_Pct_Variance decimal(8, 6)
+)
+
+insert into #variance
+select
+	i.Trxn_Nbr,
+	1 - sum(i.Invoice_Pct) as Inv_Pct_Variance
+from #invoice i
+group by
+	i.Trxn_Nbr
+having
+	(1 - sum(i.Invoice_Pct)) <> 0;
+
+
+--Update invoice variance to be whole
+update i
+set i.Invoice_Pct = i.Invoice_Pct + v.Inv_Pct_Variance
+from #invoice i
+	inner join #variance v
+		on i.Trxn_Nbr = v.Trxn_Nbr
+where
+	i.Row_Nbr = 1
+
+
+--Final data set
+select
+	a.ReportDate,
+	a.VendNbr,
+	a.VendName,
+	a.Doc_Nbr,
+	a.DocDate,
+	case when len(i.Sell_As) = 0 then 'Unknown' else i.Sell_As end as Sell_As,
+	-i.Invoice_Amount as Invoice_Amount,
+	i.Invoice_Pct,
+	a.OpenBal * i.Invoice_Pct as OpenBal,
+	a.[0-30] * i.Invoice_Pct as [0-30],
+	a.[31-60] * i.Invoice_Pct as [31-60],
+	a.[61-90] * i.Invoice_Pct as [61-90],
+	a.[91-120] * i.Invoice_Pct as [91-120],
+	a.Over120 * i.Invoice_Pct as Over120	
+from #aging a
+	inner join #invoice i
+		on a.Trxn_Nbr = i.Trxn_Nbr		
+
+
+
+drop table #rac_trxn
+drop table #aging
+drop table #invoice
+drop table #variance
+

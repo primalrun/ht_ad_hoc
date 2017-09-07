@@ -1,0 +1,61 @@
+declare @postdate date = '2017-06-01'
+declare @docdate date = dateadd("D",-1,@postdate)
+
+--select @postdate as PostDate, @docdate as DocDate
+
+
+create table #gl_acct (
+	company varchar(10),
+	gl_account varchar(10))
+
+--Other Operating Expense
+insert into #gl_acct
+values
+('RAC', '12000')
+
+
+--RAC
+select
+	'RAC' as GL_Company,
+	gl.[G_L Account No_] collate SQL_Latin1_General_CP1_CI_AS as GL_Acct,
+	gl.[Document No_] collate SQL_Latin1_General_CP1_CI_AS as Doc_Nbr,
+	gl.[Document Date],
+	gl.[Posting Date],
+	gl.[Location Code] collate SQL_Latin1_General_CP1_CI_AS as [Location],
+	gl.[Shortcut Dimension 5 Code] collate SQL_Latin1_General_CP1_CI_AS as Sell_As,
+	gl.[Global Dimension 2 Code] collate SQL_Latin1_General_CP1_CI_AS as Bus_Unit,
+	gl.[Shortcut Dimension 4 Code] collate SQL_Latin1_General_CP1_CI_AS as Dept,
+	gl.[Global Dimension 1 Code] collate SQL_Latin1_General_CP1_CI_AS as Acq_Code,
+	gl.Description collate SQL_Latin1_General_CP1_CI_AS as [Description],
+	gl.[Source No_] collate SQL_Latin1_General_CP1_CI_AS as Vendor_Nbr,
+	v.Name as Vendor_Name,
+	gl.[External Document No_] collate SQL_Latin1_General_CP1_CI_AS as External_Doc_Nbr,
+	sum(gl.Amount) as Amount
+from navrep.dbo.[Rentacrate$G_L Entry] gl with(nolock)
+	inner join #gl_acct g
+		on gl.[G_L Account No_] collate SQL_Latin1_General_CP1_CI_AS = g.gl_account
+		and g.company = 'RAC'
+	left join NAVRep.dbo.[Rentacrate$Vendor] v
+		on gl.[Source No_] collate SQL_Latin1_General_CP1_CI_AS = v.No_
+where
+	gl.[Posting Date] >= @postdate
+	and gl.[Document Date] <= @docdate
+	and (left(gl.[Document No_], 4) = 'PINV'
+	or left(gl.[Document No_], 2) = 'CM')
+group by
+	gl.[G_L Account No_],
+	gl.[Document No_],
+	gl.[Document Date],
+	gl.[Posting Date],
+	gl.[Location Code],
+	gl.[Shortcut Dimension 5 Code],
+	gl.[Global Dimension 2 Code],
+	gl.[Shortcut Dimension 4 Code],
+	gl.[Global Dimension 1 Code],
+	gl.Description,
+	gl.[Source No_],
+	v.Name,
+	gl.[External Document No_]
+
+
+drop table #gl_acct

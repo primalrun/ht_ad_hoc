@@ -1,0 +1,93 @@
+--results are stored in playground.[myop\jason.walker].jwtemp
+use Playground
+go
+
+IF OBJECT_ID(N'jwtemp', 'U') IS NOT NULL
+  DROP TABLE jwtemp
+GO
+
+--yesterday
+DECLARE @dateend DATE = GETDATE() - 1
+--DECLARE @dateend DATE = '2017-03-10'
+
+--beginning of current month
+DECLARE @datestart DATE = DATEADD(DAY, - DATEPART(DAY, @dateend) + 1, @dateend)
+--DECLARE @datestart DATE = '2017-03-01'
+
+--SELECT @datestart, @dateend
+
+DECLARE @intmonthback SMALLINT = 5
+
+DECLARE @intworkdays SMALLINT = (
+  SELECT COUNT(q1.inv_date) FROM (
+  SELECT DISTINCT
+     saad.inv_date
+  FROM Playground.[myop\jason.walker].sales_analysis_agg_date saad
+     INNER JOIN Playground.[myop\jason.walker].workday w
+        ON saad.inv_date = w.date1
+  WHERE
+     saad.inv_date BETWEEN @datestart AND @dateend
+     AND saad.inv_date IS NOT NULL   
+     AND w.workday_int = 1) q1)
+
+
+CREATE TABLE #datetemp (
+  period CHAR(10), 
+  date_start DATE, 
+  date_end DATE )
+
+WHILE @intmonthback > 0
+BEGIN
+  DECLARE @strsql NVARCHAR(MAX) = N'
+  INSERT INTO #datetemp     
+  SELECT MAX(q1.period) as period, DATEADD(DAY, - DAY(MIN(q1.date1)) + 1, MIN(q1.date1)) AS date_start, MAX(q1.date1) as date_end FROM (
+  SELECT TOP ' + CAST(@intworkdays AS VARCHAR(2)) + '
+     w.date1, 
+     CAST(YEAR(w.date1) AS VARCHAR(4)) + ''-'' + RIGHT(''0''+CAST(MONTH(w.date1) AS VARCHAR(2)),2) as period
+  FROM Playground.[myop\jason.walker].workday w
+  WHERE
+     w.date1 BETWEEN @startdate AND @enddate
+     AND w.workday_int = 1
+  ORDER BY 1) q1'
+  
+  EXEC sys.sp_executesql @strsql,
+                         N'@startdate DATE, @enddate DATE',
+                         @startdate = @datestart, @enddate = @dateend
+  
+  SET @datestart = DATEADD(MONTH, -1, @datestart)
+  SET @dateend = DATEADD(DAY, -1, DATEADD(MONTH, 1, @datestart))
+  SET @intmonthback = @intmonthback - 1
+END
+
+
+SELECT
+  d.period AS Period,
+  @intworkdays AS WorkDays, 
+  saad.business_unit AS [Business Unit], 
+  saad.business_unit_orig AS [BU Original], 
+  saad.product_class AS [Product Class], 
+  saad.company_name AS Company,   
+  saad.cust_nbr as CustNbr,
+  saad.cust_name as Customer, 
+  saad.system_name AS System, 
+  d.date_end AS [Reported Through Date], 
+  SUM(saad.sales_no_frt) AS Sales, 
+  SUM(saad.sales_no_frt) - SUM(saad.unloaded_cost) AS Margin
+into playground.[myop\jason.walker].jwtemp
+FROM Playground.[myop\jason.walker].sales_analysis_agg_date saad INNER JOIN #datetemp d
+   ON CAST(YEAR(saad.inv_date) AS VARCHAR(4)) + '-' + RIGHT('0'+CAST(MONTH(saad.inv_date) AS VARCHAR(2)),2) = d.period
+WHERE
+   saad.inv_date BETWEEN d.date_start AND d.date_end  
+GROUP BY
+  d.period,  
+  saad.business_unit, 
+  saad.business_unit_orig, 
+  saad.product_class, 
+  saad.company_name, 
+  saad.cust_nbr,
+  saad.cust_name, 
+  saad.system_name, 
+  d.date_end
+ 
+
+DROP TABLE #datetemp

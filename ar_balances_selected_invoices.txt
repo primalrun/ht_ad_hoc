@@ -1,0 +1,101 @@
+--Use TNDCSQL03
+DECLARE @AsofDate AS datetime = getdate()
+DECLARE @rdate AS datetime = @AsofDate
+
+--HT----------------------------------------------------------------------------------------------------------------------------
+select
+	'HT' as Company,
+	cle.[Customer No_] as CustNbr,
+	cle.[Document No_] as InvoiceNbr,	
+	cle.[Document Date] as DocumentDate	,
+	sum(db.Balance) as Balance
+from NAVRep.dbo.[Hi Touch$Cust_ Ledger Entry] cle with(nolock)
+	inner join htdw.playground.[myop\jason.walker].ar_aging_company_invoice aci
+		on cle.[Customer No_] = aci.cust_nbr
+		and cle.[Document No_] = aci.invoice
+		and cle.[Document Date] = aci.invoice_date
+		and aci.company = 'HT'
+	inner join (
+		select
+			dcle.[Cust_ Ledger Entry No_],
+			sum(dcle.Amount) as Balance
+		from NAVRep.dbo.[Hi Touch$Detailed Cust_ Ledg_ Entry] dcle
+		where
+			dcle.[Posting Date] <= @rdate
+		group by
+			dcle.[Cust_ Ledger Entry No_]
+		) db
+			on cle.[Entry No_] = db.[Cust_ Ledger Entry No_]
+where
+	cle.[Posting Date] <= @rdate
+group by
+	cle.[Customer No_],
+	cle.[Document No_],
+	cle.[Document Date]
+
+union all
+
+----MYOP----------------------------------------------------------------------------------------------------------------------------
+
+select
+	'MYOP' as Company,
+	cle.[Customer No_] as CustNbr,
+	cle.[Document No_] as InvoiceNbr,	
+	cle.[Document Date] as DocumentDate	,
+	sum(db.Balance) as Balance
+from NAVRep.dbo.[MYOP$Cust_ Ledger Entry] cle with(nolock)
+	inner join htdw.playground.[myop\jason.walker].ar_aging_company_invoice aci
+		on cle.[Customer No_] = aci.cust_nbr
+		and cle.[Document No_] = aci.invoice
+		and cle.[Document Date] = aci.invoice_date
+		and aci.company = 'MYOP'
+	inner join (
+		select
+			dcle.[Cust_ Ledger Entry No_],
+			sum(dcle.Amount) as Balance
+		from NAVRep.dbo.[MYOP$Detailed Cust_ Ledg_ Entry] dcle
+		where
+			dcle.[Posting Date] <= @rdate
+		group by
+			dcle.[Cust_ Ledger Entry No_]
+		) db
+			on cle.[Entry No_] = db.[Cust_ Ledger Entry No_]
+where
+	cle.[Posting Date] <= @rdate
+group by
+	cle.[Customer No_],
+	cle.[Document No_],
+	cle.[Document Date]
+
+union all
+
+----RAC----------------------------------------------------------------------------------------------------------------------------
+select
+	'RAC' as Company,
+	cle.[Customer No_] as CustNbr,
+	cle.[Document No_] as InvoiceNbr,	
+	cle.[Document Date] as DocumentDate	,
+	sum(db.Balance) as Balance
+from NAVRep.dbo.[Rentacrate$Cust_ Ledger Entry] cle with(nolock)
+	inner join htdw.playground.[myop\jason.walker].ar_aging_company_invoice aci
+		on cle.[Customer No_] = aci.cust_nbr
+		and cle.[Document No_] = aci.invoice
+		and cle.[Document Date] = aci.invoice_date
+		and aci.company = 'RAC'
+	inner join (
+		select
+			dcle.[Cust_ Ledger Entry No_],
+			sum(dcle.Amount) as Balance
+		from NAVRep.dbo.[Rentacrate$Detailed Cust_ Ledg_ Entry] dcle
+		where
+			dcle.[Posting Date] <= @rdate
+		group by
+			dcle.[Cust_ Ledger Entry No_]
+		) db
+			on cle.[Entry No_] = db.[Cust_ Ledger Entry No_]
+where
+	cle.[Posting Date] <= @rdate
+group by
+	cle.[Customer No_],
+	cle.[Document No_],
+	cle.[Document Date]

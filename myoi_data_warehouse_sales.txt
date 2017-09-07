@@ -1,0 +1,53 @@
+DECLARE @dateend DATE = '2017-06-30'
+DECLARE @datestart DATE = '2017-01-01'
+
+select
+	CAST(YEAR(ih.InvDate) AS VARCHAR(4)) + '-' + RIGHT('0'+CAST(MONTH(ih.InvDate) AS VARCHAR(2)),2) AS Period,
+	co.CompanyName,
+	case when id.InternalProdClassID = 22 or (id.InternalProdClassID = 4 and id.BusinessUnitID = 3) then 'MPS'
+		when id.InternalProdClassID in (25, 26) or (id.InternalProdClassID = 19 and id.BusinessUnitID = 3) then 'ITS' 
+		when id.BusinessUnitID = 10 then 'MYOI' 
+		when c.CustName like 'Tractor Supply%' or id.BusinessUnitID = 7 then 'Fulfillment' 
+		when id.InternalProdClassID = 27 or (id.InternalProdClassID = 2 and id.BusinessUnitID = 9) then 'Design Works' 
+		else 'Office Products'
+		end as BusinessUnit,
+	c.CustNbr,
+	c.CustName,
+	sum(id.UnitSell * id.InvoicedQty) as Sales,
+	sum(id.UnloadedPOSCost * id.InvoicedQty) as Cost_Unloaded	
+from htdw.dbo.tInvoiceHeader ih with(nolock)
+	inner join htdw.dbo.tInvoiceDetail id with(nolock)
+		on ih.DWInvoiceID = id.DWInvoiceID
+	left outer join htdw.dbo.tSalesperson s with(nolock)
+		on ih.PrimaryRepSPID = s.SalespersonID
+	inner join htdw.dbo.tCustomerMaster cm with(nolock)
+		on ih.CustomerMasterID = cm.CustomerMasterID
+	inner join htdw.dbo.tCustomer c with(nolock)
+		on cm.CustID = c.CustID
+	inner join htdw.dbo.tSystem sy with(nolock)
+		on ih.SystemID = sy.SystemID
+	left outer join htdw.dbo.tSalesperson sp with(nolock)
+		on ih.PrimaryRepSPID = sp.SalespersonID
+	left outer join htdw.dbo.tEmployee emp with(nolock)
+		on s.EmployeeID = emp.EmployeeID
+	inner join htdw.dbo.tCompany co with(nolock)
+		on ih.CompanyID = co.CompanyID
+where
+	ih.InvDate between @datestart and @dateend
+	and ih.isInternalSales = 0
+	and id.BusinessUnitID=10
+group by
+	CAST(YEAR(ih.InvDate) AS VARCHAR(4)) + '-' + RIGHT('0'+CAST(MONTH(ih.InvDate) AS VARCHAR(2)),2),	
+	co.CompanyName,
+	case when id.InternalProdClassID = 22 or (id.InternalProdClassID = 4 and id.BusinessUnitID = 3) then 'MPS'
+		when id.InternalProdClassID in (25, 26) or (id.InternalProdClassID = 19 and id.BusinessUnitID = 3) then 'ITS' 
+		when id.BusinessUnitID = 10 then 'MYOI' 
+		when c.CustName like 'Tractor Supply%' or id.BusinessUnitID = 7 then 'Fulfillment' 
+		when id.InternalProdClassID = 27 or (id.InternalProdClassID = 2 and id.BusinessUnitID = 9) then 'Design Works' 
+		else 'Office Products'
+		end,
+	c.CustNbr,
+	c.CustName
+having 
+	abs(sum(id.UnitSell * id.InvoicedQty)) > 0 
+	or abs(sum(id.UnloadedPOSCost * id.InvoicedQty)) > 0

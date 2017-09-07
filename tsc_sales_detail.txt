@@ -1,0 +1,133 @@
+declare @datestart date = '2016-01-01'
+declare @dateend date = '2017-04-12';
+
+begin try
+	drop table Playground.[myop\jason.walker].jwtemp
+end try
+begin catch
+end catch;
+
+with cust_invoice as (--Sales, Cost, Cust_Invoice, Item, Item Unit Cost
+		select
+			ih.InvDate,
+			case when id.InternalProdClassID = 22 or (id.InternalProdClassID = 4 and id.BusinessUnitID = 3) then 'MPS'
+				when id.InternalProdClassID in (25, 26) or (id.InternalProdClassID = 19 and id.BusinessUnitID = 3) then 'ITS' 
+				when s.PrimaryDivisionID = 2 then 'MYOI' 
+				when c.CustName like 'Tractor Supply%' or id.BusinessUnitID = 7 then 'Fulfillment' 
+				when id.InternalProdClassID = 27 or (id.InternalProdClassID = 2 and id.BusinessUnitID = 9) then 'Design Works' 
+				else 'Office Products'
+				end as Business_Unit,
+			c.CustNbr,
+			c.CustName,
+			ih.PrimarySalespersonCode,
+			e.Name as SalesRep,
+			ih.FullInvoiceNbr,
+			id.ExtProdNbr, 
+			st.ShipToCode,
+			isnull(nullif(id.OurPONbr, ''), 'Unknown') as PONbr,
+			isnull(v.VendorCd, 'Unknown') as VendorCd,
+			isnull(v.VendorName, 'Unknown') as VendorName,
+			id.UnitSell as Invoice_Unit_Price,
+			id.UnloadedPOSCost as Invoice_Unit_Cost_Unloaded,
+			sum(id.InvoicedQty) as Invoice_Qty
+		from htdw.dbo.tInvoiceHeader ih with(nolock)
+			inner join htdw.dbo.tInvoiceDetail id with(nolock)
+				on ih.DWInvoiceID = id.DWInvoiceID
+			inner join htdw.dbo.tSalesperson s
+				on ih.PrimaryRepSPID = s.SalespersonID
+			left outer join htdw.dbo.tEmployee e
+				on s.EmployeeID = e.EmployeeID
+			left outer join htdw.dbo.tCustomerMaster cm
+				on ih.CustomerMasterID = cm.CustomerMasterID
+			inner join htdw.dbo.tCustomer c
+				on cm.CustID = c.CustID
+			left outer join htdw.dbo.tVendor v
+				on id.VendorID = v.VendorID
+			left outer join htdw.dbo.tShipTo st with(nolock)
+				on ih.ShipToMasterID = st.ShipToMasterID
+				and st.isCurrent = 1
+		where
+			ih.InvDate between @datestart and @dateend
+			and s.isInternal = 0
+			and c.CustName like 'Tractor Supply%'
+		group by
+			ih.InvDate,
+			case when id.InternalProdClassID = 22 or (id.InternalProdClassID = 4 and id.BusinessUnitID = 3) then 'MPS'
+				when id.InternalProdClassID in (25, 26) or (id.InternalProdClassID = 19 and id.BusinessUnitID = 3) then 'ITS' 
+				when s.PrimaryDivisionID = 2 then 'MYOI' 
+				when c.CustName like 'Tractor Supply%' or id.BusinessUnitID = 7 then 'Fulfillment' 
+				when id.InternalProdClassID = 27 or (id.InternalProdClassID = 2 and id.BusinessUnitID = 9) then 'Design Works' 
+				else 'Office Products'
+				end,
+			c.CustNbr,
+			c.CustName,
+			e.Name,
+			ih.PrimarySalespersonCode,
+			ih.FullInvoiceNbr,
+			id.ExtProdNbr,
+			st.ShipToCode,
+			isnull(nullif(id.OurPONbr, ''), 'Unknown'),
+			isnull(v.VendorCd, 'Unknown'),
+			isnull(v.VendorName, 'Unknown'),
+			id.UnitSell,
+			id.UnloadedPOSCost
+		having
+			abs(sum(id.InvoicedQty)) > 0),
+		
+
+		--Item purchase price, purchase invoice date
+		purchase_price as (
+		select * from (
+		select
+			q1.PONbr,
+			q1.ExtProdNbr,
+			q1.Invoice_Date,
+			q1.Purchase_Unit_Price,
+			q1.Date_Diff,
+			row_number() over (partition by q1.PONbr, q1.ExtProdNbr order by q1.Date_Diff) as MyRow
+		from (
+
+		select		
+			ci.PONbr,
+			ci.ExtProdNbr, 
+			e.Invoice_Date,			
+			(sum(e.Extended_Amount) / sum(e.Ship_Qty)) as Purchase_Unit_Price,
+			min(abs(DATEDIFF("D", ci.InvDate, e.Invoice_Date))) as Date_Diff
+		from cust_invoice ci
+			inner join Playground.[myop\jason.walker].essendant_daily_invoice e
+				on ci.PONbr = e.Cust_PO_Nbr
+				and ci.ExtProdNbr = e.Item	
+		group by		
+			ci.PONbr,
+			ci.ExtProdNbr,
+			e.Invoice_Date
+		having
+			abs(sum(e.Ship_Qty)) > 0
+		) q1)
+		q2
+		where q2.MyRow = 1
+		
+		)
+
+--Combine Sales data with purchase data on item and PO Number
+
+select
+	c.*,
+	(c.Invoice_Qty * c.Invoice_Unit_Price) as Sales,
+	(c.Invoice_Qty * c.Invoice_Unit_Cost_Unloaded) as Cost_Unloaded,
+	isnull(p.Purchase_Unit_Price, 0) as Purchase_Unit_Price,
+	(c.Invoice_Unit_Cost_Unloaded - p.Purchase_Unit_Price) as Item_Variance,
+	p.Invoice_Date as Purchase_Invoice_Date
+into Playground.[myop\jason.walker].jwtemp
+from cust_invoice c
+	left outer join purchase_price p
+		on c.PONbr = p.PONbr
+		and c.ExtProdNbr = p.ExtProdNbr
+	
+
+
+
+
+
+
+

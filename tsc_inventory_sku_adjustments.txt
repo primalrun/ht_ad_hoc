@@ -1,0 +1,42 @@
+declare @datestart date = '2016-01-01'
+declare @dateend date = '2016-12-31';
+
+begin try
+	drop table Playground.[myop\jason.walker].jwtemp;
+end try
+begin catch
+end catch;
+
+with tsc_adj as (
+select
+	it.ExtTransactionID
+from tndcsql03.VBO_REP.dbo.InventoryTransaction it with(nolock)
+	inner join tndcsql03.VBO_REP.dbo.InventoryTransactionDetail itd with(nolock)
+		on it.ID = itd.InventoryTransactionID
+where
+	it.QtyPostDate between @datestart and @dateend
+	and it.Type = 'Adjustment'
+	and itd.ProductID like '%tsc%')
+
+select
+	case when itd.ProductID like '%tsc%' then 'Y'
+		else 'N'
+		end as TSC_Flag,
+	it.Type,
+	it.QtyPostDate,
+	it.Reason,
+	it.ExtTransactionID,
+	it.WarehouseID,	
+	itd.ProductID,
+	itd.VendorID,
+	itd.Quantity,
+	itd.Cost,
+	itd.Extension
+into Playground.[myop\jason.walker].jwtemp
+from tndcsql03.VBO_REP.dbo.InventoryTransaction it with(nolock)
+	inner join tndcsql03.VBO_REP.dbo.InventoryTransactionDetail itd with(nolock)
+		on it.ID = itd.InventoryTransactionID
+	inner join tsc_adj ta
+		on it.ExtTransactionID = ta.ExtTransactionID
+where
+	it.QtyPostDate between @datestart and @dateend

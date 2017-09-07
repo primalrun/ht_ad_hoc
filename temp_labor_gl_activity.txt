@@ -1,0 +1,60 @@
+declare @datestart date = '2016-11-01'
+declare @dateend date = getdate()
+
+select
+	'HT' as GL_Company,
+	gl.[Posting Date],
+	gl.[Entry No_],
+	gl.[G_L Account No_],
+	gl.[Document No_],
+	gl.Description,
+	gl.[External Document No_],
+	gl.Description,
+	gl.[User ID],
+	gl.[Global Dimension 2 Code],
+	gl.[Shortcut Dimension 5 Code],
+	gl.Amount
+from NAVRep.dbo.[Hi Touch$G_L Entry] gl with(nolock)
+where
+	gl.[G_L Account No_] in ('41900', '51900')
+	and gl.[Posting Date] between @datestart and @dateend
+
+union all
+
+select
+	'MYOP' as GL_Company,
+	gl.[Posting Date],
+	gl.[Entry No_],
+	gl.[G_L Account No_],
+	gl.[Document No_],
+	gl.Description,
+	gl.[External Document No_],
+	gl.Description,
+	gl.[User ID],
+	gl.[Global Dimension 2 Code],
+	gl.[Shortcut Dimension 5 Code],
+	gl.Amount
+from NAVRep.dbo.[MYOP$G_L Entry] gl with(nolock)
+where
+	gl.[G_L Account No_] = '60400'
+	and gl.[Posting Date] between @datestart and @dateend
+
+union all
+
+select
+	'RAC' as GL_Company,
+	gl.[Posting Date],
+	gl.[Entry No_],
+	gl.[G_L Account No_] collate SQL_Latin1_General_CP1_CI_AS,
+	gl.[Document No_] collate SQL_Latin1_General_CP1_CI_AS,
+	gl.Description collate SQL_Latin1_General_CP1_CI_AS,
+	gl.[External Document No_] collate SQL_Latin1_General_CP1_CI_AS,
+	gl.Description collate SQL_Latin1_General_CP1_CI_AS,
+	gl.[User ID] collate SQL_Latin1_General_CP1_CI_AS,
+	gl.[Global Dimension 2 Code] collate SQL_Latin1_General_CP1_CI_AS,
+	gl.[Shortcut Dimension 5 Code] collate SQL_Latin1_General_CP1_CI_AS,
+	gl.Amount
+from NAVRep.dbo.[Rentacrate$G_L Entry] gl with(nolock)
+where
+	gl.[G_L Account No_] = '58900'
+	and gl.[Posting Date] between @datestart and @dateend

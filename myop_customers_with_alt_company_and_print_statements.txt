@@ -1,0 +1,19 @@
+--myop
+--customer with alt company, are they flagged for statements
+--print statements = true
+
+
+select	
+	c.No_ as Cust_Nbr,
+	c.Name as Cust_Name,
+	c.[Alternate Company Info Code] as Alt_Company,
+	case when c.[Print Statements] = 1 then 'Yes' else 'No' end as Print_Statements,
+	(select
+		isnull(sum(dcle.amount), 0)
+	from NAVRep.dbo.[MYOP$Detailed Cust_ Ledg_ Entry] dcle
+	where
+		dcle.[Customer No_] = c.No_) as Cust_Balance
+from navrep.dbo.MYOP$Customer c with(nolock)
+where
+	c.[Alternate Company Info Code] <> ''
+	and c.[Print Statements] = 1

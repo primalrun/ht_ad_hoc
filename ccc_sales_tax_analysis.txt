@@ -1,0 +1,83 @@
+--Use TNDCSQL02
+
+create table #cust_dw(
+	cust_nbr varchar(25),
+	customer_master_id int,
+	cust_name varchar(75))
+
+insert into #cust_dw
+select
+	mc.cust_nbr,
+	c.CustomerMasterID,
+	c.CustName
+from Playground.[myop\jason.walker].myop_cust_nbr mc
+	inner join htdw.dbo.tCustomer c with(nolock)
+		on mc.cust_nbr = c.CustNbr
+		and c.isCurrent = 1
+
+create table #cust_tax(
+	cust_id int,
+	cust_name varchar(75),
+	ship_to varchar(75),
+	tax_group varchar(75),
+	zip varchar(10),
+	tax_pct decimal(10, 2))
+
+insert into #cust_tax
+select distinct
+	c.[AR CUST Customer ID],	
+	c.[AR CUST Name],	
+	st.[AR SHIP ID],	
+	st.TaxGroupID,
+	st.[AR SHIP Postal],
+	syt.[SYS TAX Percent]
+from VBO_REP.VBO_REP.dbo.[AR Ship To] st with(nolock)
+	INNER JOIN VBO_REP.VBO_REP.dbo.[AR Customer] c with(nolock)
+		on st.[AR SHIP Customer ID] = c.[AR CUST Customer ID]
+	inner join #cust_dw cdw
+		on c.[AR CUST Name] = cdw.cust_name
+	left outer join VBO_REP.VBO_REP.dbo.[SYS Tax] syt with(nolock)
+		on st.TaxGroupID = syt.[SYS TAX ID]
+
+
+
+begin try
+	drop table Playground.[myop\jason.walker].jwtemp
+end try
+begin catch
+end catch
+
+select
+	ih.SellToCustNbr,
+	ct.cust_name as CustName,
+	ih.InvDate,
+	ih.FullInvoiceNbr,
+	ct.ship_to as ShipTo,
+	ct.zip as ZipCode,
+	ct.tax_group  as CustTaxGroup,	
+	(ct.tax_pct / 100) as CustTaxPct,
+	id.TaxPct as InvoiceTaxPct,
+	sum(id.InvoicedQty * id.UnitSell) as Sales,
+	sum(id.InvoicedQty * id.UnloadedPOSCost) as Cost,
+	sum(id.TaxAmt) as InvoiceTax
+into Playground.[myop\jason.walker].jwtemp
+from htdw.dbo.tInvoiceHeader ih with(nolock)
+	inner join htdw.dbo.tInvoiceDetail id with(nolock)
+		on ih.DWInvoiceID = id.DWInvoiceID
+	inner join #cust_tax ct
+		on ih.SellToCustNbr = ct.cust_id	
+		and ih.ShipToCd = ct.ship_to	
+group by
+	ih.SellToCustNbr,
+	ct.cust_name,
+	ih.InvDate,
+	ih.FullInvoiceNbr,
+	ct.ship_to,
+	ct.zip,
+	ct.tax_group,	
+	(ct.tax_pct / 100),
+	id.TaxPct
+
+
+drop table #cust_dw
+drop table #cust_tax
